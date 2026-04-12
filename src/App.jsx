@@ -16,10 +16,9 @@ export default function App() {
 
   const todayCode = (() => {
     const d = new Date();
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yy = String(d.getFullYear()).slice(-2);
-    return `${dd}${mm}${yy}`;
+    return `${String(d.getDate()).padStart(2, "0")}${String(
+      d.getMonth() + 1
+    ).padStart(2, "0")}${String(d.getFullYear()).slice(-2)}`;
   })();
 
   const [step, setStep] = useState("gate");
@@ -30,7 +29,6 @@ export default function App() {
     { name: "", hcp: 0 },
     { name: "", hcp: 0 }
   ]);
-
   const [scores, setScores] = useState({});
   const [selectedHole, setSelectedHole] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(0);
@@ -41,7 +39,7 @@ export default function App() {
     if (saved) {
       const parsed = JSON.parse(saved);
       setStep(parsed.step || "gate");
-      setPlayers(parsed.players || players);
+      setPlayers(parsed.players || []);
       setScores(parsed.scores || {});
     }
   }, []);
@@ -57,13 +55,13 @@ export default function App() {
 
   const getShots = (hcp, si) => {
     const base = Math.floor(hcp / 18);
-    const extra = si <= (hcp % 18) ? 1 : 0;
-    return base + extra;
+    const remainder = hcp % 18;
+    return base + (si <= remainder ? 1 : 0);
   };
 
   const getPoints = (gross, par, shots) => {
-    if (gross === "NS" || gross === 0) return 0;
-    return Math.max(0, 2 + par + shots - gross);
+    if (gross == null || gross === "NS" || gross === 0) return 0;
+    return Math.max(0, 2 + par + shots - Number(gross));
   };
 
   const totals = useMemo(() => {
@@ -78,16 +76,21 @@ export default function App() {
         const pts = getPoints(gross, h.par, shots);
 
         points += pts;
-        if (gross !== "NS" && gross && gross < h.par) birdies++;
-        if (pts === 0) blobs++;
+
+        if (gross != null && gross !== "NS" && Number(gross) < h.par) {
+          birdies++;
+        }
+
+        if (gross != null && pts === 0) blobs++;
       });
 
       return { points, birdies, blobs };
     });
-  }, [scores, players]);
+  }, [scores, activePlayers]);
 
   const saveHoleScore = (value) => {
     const hole = selectedHole;
+
     setScores((prev) => ({
       ...prev,
       [hole]: {
@@ -104,6 +107,26 @@ export default function App() {
       setSelectedHole(null);
       setSelectedPlayer(0);
     }
+  };
+
+  const editPlayer = (index) => {
+    const newName = prompt("Player name", activePlayers[index].name);
+    if (newName === null) return;
+
+    const newHcp = prompt("Handicap", activePlayers[index].hcp);
+    if (newHcp === null) return;
+
+    const updated = [...players];
+    const realIndex = players.findIndex(
+      (p) => p.name === activePlayers[index].name
+    );
+
+    updated[realIndex] = {
+      name: newName,
+      hcp: Number(newHcp)
+    };
+
+    setPlayers(updated);
   };
 
   if (step === "gate") {
@@ -146,7 +169,6 @@ export default function App() {
             <input
               type="number"
               className="border p-2 rounded"
-              placeholder="Hcp"
               value={p.hcp}
               onChange={(e) => {
                 const copy = [...players];
@@ -175,24 +197,37 @@ export default function App() {
         <h2 className="text-xl mb-4">
           Hole {hole.hole} – {player.name}
         </h2>
+
         <div className="flex gap-3 items-center">
-          <button onClick={() => setTempScore((s) => Math.max(0, s - 1))}>
+          <button
+            className="px-4 py-2 border rounded"
+            onClick={() => setTempScore((s) => Math.max(0, s - 1))}
+          >
             -
           </button>
+
           <input
             type="number"
             className="border text-center text-3xl p-4 rounded flex-1"
             value={tempScore}
             onChange={(e) => setTempScore(Number(e.target.value))}
           />
-          <button onClick={() => setTempScore((s) => s + 1)}>+</button>
+
+          <button
+            className="px-4 py-2 border rounded"
+            onClick={() => setTempScore((s) => s + 1)}
+          >
+            +
+          </button>
         </div>
+
         <button
           className="mt-4 w-full bg-gray-700 text-white p-3 rounded"
           onClick={() => saveHoleScore("NS")}
         >
           No score
         </button>
+
         <button
           className="mt-2 w-full bg-purple-600 text-white p-3 rounded"
           onClick={() => saveHoleScore(tempScore)}
@@ -204,23 +239,40 @@ export default function App() {
   }
 
   return (
-    <div className="p-2 overflow-x-auto">
-      <table className="w-full text-sm">
+    <div className="p-2 overflow-x-auto text-center">
+      <table className="w-full text-sm border-2 border-black text-center" style={{ borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            <th>Hole</th>
-            <th>Par</th>
-            <th>S.I.</th>
+            <th className="border border-black text-center" rowSpan={2}>Hole</th>
+            <th className="border border-black text-center" rowSpan={2}>Par</th>
+            <th className="border border-black text-center" rowSpan={2}>S.I.</th>
             {activePlayers.map((p, i) => (
-              <th key={i}>{p.name}</th>
+              <th
+                key={i}
+                colSpan={2}
+                className="border border-black text-center cursor-pointer"
+                onClick={() => editPlayer(i)}
+              >
+                {p.name}
+              </th>
+            ))}
+          </tr>
+          <tr>
+            {activePlayers.map((_, i) => (
+              <React.Fragment key={i}>
+                <th className="border border-black text-center">Score</th>
+                <th className="border border-black text-center">Points</th>
+              </React.Fragment>
             ))}
           </tr>
         </thead>
+
         <tbody>
           {HOLES.map((h) => (
             <tr
               key={h.hole}
               className="cursor-pointer"
+              style={{ backgroundColor: h.hole % 2 === 1 ? '#bfdbfe' : '#dbeafe' }}
               onClick={() => {
                 setSelectedHole(h.hole);
                 setSelectedPlayer(0);
@@ -228,37 +280,83 @@ export default function App() {
                 setStep("entry");
               }}
             >
-              <td>{h.hole}</td>
-              <td>{h.par}</td>
-              <td>{h.si}</td>
+              <td className="border border-black text-center font-medium">{h.hole}</td>
+              <td className="border border-black text-center">{h.par}</td>
+              <td className="border border-black text-center">{h.si}</td>
+
               {activePlayers.map((p, idx) => {
                 const gross = scores[h.hole]?.[idx];
                 const shots = getShots(p.hcp, h.si);
+                const pts = getPoints(gross, h.par, shots);
                 const stars = "*".repeat(Math.min(shots, 2));
+                const scoreDisplay = gross == null ? "" : gross === "NS" ? "-" : gross;
+                const alwaysStars = stars;
+                const ptsBg =
+                  pts === 2
+                    ? "bg-amber-100"
+                    : pts < 2
+                    ? "bg-red-100"
+                    : "bg-green-100";
+
                 return (
-                  <td key={idx}>
-                    {(gross === "NS" ? "-" : gross ?? 0) + " " + stars}
-                  </td>
+                  <React.Fragment key={idx}>
+                    <td className="border border-black text-center">
+                      {`${scoreDisplay}${scoreDisplay ? " " : ""}${alwaysStars}`}
+                    </td>
+                    <td className="border border-black text-center font-semibold"
+                      style={{
+                        backgroundColor:
+                          gross == null
+                            ? 'transparent'
+                            : pts === 2
+                            ? '#fde68a'
+                            : pts < 2
+                            ? '#fecaca'
+                            : '#bbf7d0'
+                      }}>
+                      {gross == null ? "" : pts}
+                    </td>
+                  </React.Fragment>
                 );
               })}
             </tr>
           ))}
+
           <tr>
-            <td colSpan={3}>Points</td>
+            <td colSpan={3} className="border border-black font-bold">
+              Points
+            </td>
             {totals.map((t, i) => (
-              <td key={i}>{t.points}</td>
+              <React.Fragment key={i}>
+                <td className="border border-black text-center font-bold">
+                  {t.points}
+                </td>
+                <td className="border border-black"></td>
+              </React.Fragment>
             ))}
           </tr>
+
           <tr>
-            <td colSpan={3}>Birdies</td>
+            <td colSpan={3} className="border border-black font-bold text-center">
+              Birdies
+            </td>
             {totals.map((t, i) => (
-              <td key={i}>{t.birdies}</td>
+              <React.Fragment key={i}>
+                <td className="border border-black text-center">{t.birdies}</td>
+                <td className="border border-black"></td>
+              </React.Fragment>
             ))}
           </tr>
+
           <tr>
-            <td colSpan={3}>Blobs</td>
+            <td colSpan={3} className="border border-black font-bold text-center">
+              Blobs
+            </td>
             {totals.map((t, i) => (
-              <td key={i}>{t.blobs}</td>
+              <React.Fragment key={i}>
+                <td className="border border-black text-center">{t.blobs}</td>
+                <td className="border border-black"></td>
+              </React.Fragment>
             ))}
           </tr>
         </tbody>
