@@ -132,7 +132,7 @@ export default function App() {
   if (step === "gate") {
     return (
       <div className="p-4 max-w-md mx-auto">
-        <h1 className="text-2xl font-bold mb-4">Purple Golf</h1>
+        <h1 className="text-2xl font-bold mb-4">Wednesday Swindle</h1>
         <input
           className="border p-3 rounded w-full"
           placeholder="Enter today's code"
