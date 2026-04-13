@@ -21,14 +21,16 @@ export default function App() {
     ).padStart(2, "0")}${String(d.getFullYear()).slice(-2)}`;
   })();
 
-  const [step, setStep] = useState("gate");
-  const [code, setCode] = useState("");
-  const [players, setPlayers] = useState([
+  const defaultPlayers = [
     { name: "", hcp: 0 },
     { name: "", hcp: 0 },
     { name: "", hcp: 0 },
     { name: "", hcp: 0 }
-  ]);
+  ];
+
+  const [step, setStep] = useState("gate");
+  const [code, setCode] = useState("");
+  const [players, setPlayers] = useState(defaultPlayers);
   const [scores, setScores] = useState({});
   const [selectedHole, setSelectedHole] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(0);
@@ -39,7 +41,7 @@ export default function App() {
     if (saved) {
       const parsed = JSON.parse(saved);
       setStep(parsed.step || "gate");
-      setPlayers(parsed.players || []);
+      setPlayers(parsed.players || defaultPlayers);
       setScores(parsed.scores || {});
     }
   }, []);
@@ -52,6 +54,14 @@ export default function App() {
   }, [step, players, scores]);
 
   const activePlayers = players.filter((p) => p.name.trim());
+
+  const cancelRound = () => {
+    if (!window.confirm("Cancel this round and start over?")) return;
+    setStep("players");
+    setScores({});
+    setSelectedHole(null);
+    setSelectedPlayer(0);
+  };
 
   const getShots = (hcp, si) => {
     const base = Math.floor(hcp / 18);
@@ -131,33 +141,36 @@ export default function App() {
 
   if (step === "gate") {
     return (
-      <div className="p-4 max-w-md mx-auto">
-        <h1 className="text-2xl font-bold mb-4">Wednesday Swindle</h1>
-        <input
-          className="border p-3 rounded w-full"
-          placeholder="Enter today's code"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-        />
-        <button
-          className="mt-4 bg-purple-600 text-white w-full p-3 rounded"
-          onClick={() =>
-            code === todayCode ? setStep("players") : alert("Wrong code")
-          }
-        >
-          Enter
-        </button>
+      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
+        <div className="w-full max-w-md text-center">
+          <h1 className="text-3xl font-bold mb-6">Wednesday Swindle</h1>
+          <input
+            className="border-2 p-5 rounded-2xl w-full text-2xl text-center"
+            placeholder="Enter today's code"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+          <button
+            className="mt-6 bg-purple-600 text-white w-full p-5 rounded-2xl text-2xl font-semibold"
+            onClick={() =>
+              code === todayCode ? setStep("players") : alert("Wrong code")
+            }
+          >
+            Enter
+          </button>
+        </div>
       </div>
     );
   }
 
   if (step === "players") {
     return (
-      <div className="p-4 max-w-md mx-auto">
+      <div className="min-h-screen p-4 max-w-md mx-auto bg-slate-50">
+        <h2 className="text-2xl font-bold mb-4 text-center">Players</h2>
         {players.map((p, i) => (
-          <div key={i} className="grid grid-cols-2 gap-2 mb-2">
+          <div key={i} className="flex gap-3 mb-3 items-center">
             <input
-              className="border p-2 rounded"
+              className="border-2 p-4 rounded-xl text-xl flex-1"
               placeholder={`Player ${i + 1}`}
               value={p.name}
               onChange={(e) => {
@@ -168,8 +181,11 @@ export default function App() {
             />
             <input
               type="number"
-              className="border p-2 rounded"
+              min="0"
+              max="99"
+              className="border-2 p-4 rounded-xl text-xl w-20 text-center"
               value={p.hcp}
+              onFocus={(e) => e.target.select()}
               onChange={(e) => {
                 const copy = [...players];
                 copy[i].hcp = Number(e.target.value);
@@ -179,7 +195,7 @@ export default function App() {
           </div>
         ))}
         <button
-          className="bg-purple-600 text-white w-full p-3 rounded"
+          className="bg-purple-600 text-white w-full p-4 rounded-2xl text-xl font-semibold mt-4"
           onClick={() => setStep("card")}
         >
           Start Round
@@ -193,14 +209,14 @@ export default function App() {
     const player = activePlayers[selectedPlayer];
 
     return (
-      <div className="p-4 max-w-md mx-auto">
-        <h2 className="text-xl mb-4">
+      <div className="min-h-screen p-4 max-w-md mx-auto">
+        <h2 className="text-2xl mb-6 text-center font-semibold">
           Hole {hole.hole} – {player.name}
         </h2>
 
         <div className="flex gap-3 items-center">
           <button
-            className="px-4 py-2 border rounded"
+            className="px-5 py-4 border rounded-xl text-2xl"
             onClick={() => setTempScore((s) => Math.max(0, s - 1))}
           >
             -
@@ -208,13 +224,13 @@ export default function App() {
 
           <input
             type="number"
-            className="border text-center text-3xl p-4 rounded flex-1"
+            className="border text-center text-4xl p-4 rounded-xl flex-1"
             value={tempScore}
             onChange={(e) => setTempScore(Number(e.target.value))}
           />
 
           <button
-            className="px-4 py-2 border rounded"
+            className="px-5 py-4 border rounded-xl text-2xl"
             onClick={() => setTempScore((s) => s + 1)}
           >
             +
@@ -222,14 +238,14 @@ export default function App() {
         </div>
 
         <button
-          className="mt-4 w-full bg-gray-700 text-white p-3 rounded"
+          className="mt-4 w-full bg-gray-700 text-white p-4 rounded-xl text-xl"
           onClick={() => saveHoleScore("NS")}
         >
           No score
         </button>
 
         <button
-          className="mt-2 w-full bg-purple-600 text-white p-3 rounded"
+          className="mt-3 w-full bg-purple-600 text-white p-4 rounded-xl text-xl"
           onClick={() => saveHoleScore(tempScore)}
         >
           Submit
@@ -239,130 +255,135 @@ export default function App() {
   }
 
   return (
-    <div className="p-2 overflow-x-auto text-center">
-      <table className="w-full text-sm border-2 border-black text-center" style={{ borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th className="border border-black text-center" rowSpan={2}>Hole</th>
-            <th className="border border-black text-center" rowSpan={2}>Par</th>
-            <th className="border border-black text-center" rowSpan={2}>S.I.</th>
-            {activePlayers.map((p, i) => (
-              <th
-                key={i}
-                colSpan={2}
-                className="border border-black text-center cursor-pointer"
-                onClick={() => editPlayer(i)}
-              >
-                {p.name}
-              </th>
-            ))}
-          </tr>
-          <tr>
-            {activePlayers.map((_, i) => (
-              <React.Fragment key={i}>
-                <th className="border border-black text-center">Score</th>
-                <th className="border border-black text-center">Points</th>
-              </React.Fragment>
-            ))}
-          </tr>
-        </thead>
+    <div className="p-2 max-w-full mx-auto">
+      <div className="flex justify-center mb-3">
+        <button
+          className="bg-red-600 text-white px-4 py-3 rounded-xl text-sm font-semibold"
+          onClick={cancelRound}
+        >
+          Cancel Round
+        </button>
+      </div>
 
-        <tbody>
-          {HOLES.map((h) => (
-            <tr
-              key={h.hole}
-              className="cursor-pointer"
-              style={{ backgroundColor: h.hole % 2 === 1 ? '#bfdbfe' : '#dbeafe' }}
-              onClick={() => {
-                setSelectedHole(h.hole);
-                setSelectedPlayer(0);
-                setTempScore(h.par);
-                setStep("entry");
-              }}
-            >
-              <td className="border border-black text-center font-medium">{h.hole}</td>
-              <td className="border border-black text-center">{h.par}</td>
-              <td className="border border-black text-center">{h.si}</td>
-
-              {activePlayers.map((p, idx) => {
-                const gross = scores[h.hole]?.[idx];
-                const shots = getShots(p.hcp, h.si);
-                const pts = getPoints(gross, h.par, shots);
-                const stars = "*".repeat(Math.min(shots, 2));
-                const scoreDisplay = gross == null ? "" : gross === "NS" ? "-" : gross;
-                const alwaysStars = stars;
-                const ptsBg =
-                  pts === 2
-                    ? "bg-amber-100"
-                    : pts < 2
-                    ? "bg-red-100"
-                    : "bg-green-100";
-
-                return (
-                  <React.Fragment key={idx}>
-                    <td className="border border-black text-center">
-                      {`${scoreDisplay}${scoreDisplay ? " " : ""}${alwaysStars}`}
-                    </td>
-                    <td className="border border-black text-center font-semibold"
-                      style={{
-                        backgroundColor:
-                          gross == null
-                            ? 'transparent'
-                            : pts === 2
-                            ? '#fde68a'
-                            : pts < 2
-                            ? '#fecaca'
-                            : '#bbf7d0'
-                      }}>
-                      {gross == null ? "" : pts}
-                    </td>
-                  </React.Fragment>
-                );
-              })}
+      <div className="overflow-x-auto">
+        <table
+          className="w-full text-xs sm:text-sm border-2 border-black table-fixed"
+          style={{ borderCollapse: "collapse" }}
+        >
+          <thead>
+            <tr>
+              <th className="border border-black text-center" rowSpan={2}>Hole</th>
+              <th className="border border-black text-center" rowSpan={2}>Par</th>
+              <th className="border border-black text-center" rowSpan={2}>S.I.</th>
+              {activePlayers.map((p, i) => (
+                <th
+                  key={i}
+                  colSpan={2}
+                  className="border border-black text-center cursor-pointer"
+                  onClick={() => editPlayer(i)}
+                >
+                  {p.name}
+                </th>
+              ))}
             </tr>
-          ))}
+            <tr>
+              {activePlayers.map((_, i) => (
+                <React.Fragment key={i}>
+                  <th className="border border-black text-center h-16 w-8">
+                    <div className="-rotate-90 whitespace-nowrap">Score</div>
+                  </th>
+                  <th className="border border-black text-center h-16 w-8">
+                    <div className="-rotate-90 whitespace-nowrap">Points</div>
+                  </th>
+                </React.Fragment>
+              ))}
+            </tr>
+          </thead>
 
-          <tr>
-            <td colSpan={3} className="border border-black font-bold">
-              Points
-            </td>
-            {totals.map((t, i) => (
-              <React.Fragment key={i}>
-                <td className="border border-black text-center font-bold">
-                  {t.points}
-                </td>
-                <td className="border border-black"></td>
-              </React.Fragment>
+          <tbody>
+            {HOLES.map((h) => (
+              <tr
+                key={h.hole}
+                className="cursor-pointer"
+                style={{ backgroundColor: h.hole % 2 === 1 ? "#bfdbfe" : "#dbeafe" }}
+                onClick={() => {
+                  setSelectedHole(h.hole);
+                  setSelectedPlayer(0);
+                  setTempScore(h.par);
+                  setStep("entry");
+                }}
+              >
+                <td className="border border-black text-center font-medium">{h.hole}</td>
+                <td className="border border-black text-center">{h.par}</td>
+                <td className="border border-black text-center">{h.si}</td>
+
+                {activePlayers.map((p, idx) => {
+                  const gross = scores[h.hole]?.[idx];
+                  const shots = getShots(p.hcp, h.si);
+                  const pts = getPoints(gross, h.par, shots);
+                  const stars = "*".repeat(Math.min(shots, 2));
+                  const scoreDisplay = gross == null ? "" : gross === "NS" ? "-" : gross;
+
+                  return (
+                    <React.Fragment key={idx}>
+                      <td className="border border-black text-center align-middle">
+                        {`${scoreDisplay}${scoreDisplay ? " " : ""}${stars}`}
+                      </td>
+                      <td
+                        className="border border-black text-center font-semibold align-middle"
+                        style={{
+                          backgroundColor:
+                            gross == null
+                              ? "transparent"
+                              : pts === 2
+                              ? "#fde68a"
+                              : pts < 2
+                              ? "#fecaca"
+                              : "#bbf7d0"
+                        }}
+                      >
+                        {gross == null ? "" : pts}
+                      </td>
+                    </React.Fragment>
+                  );
+                })}
+              </tr>
             ))}
-          </tr>
 
-          <tr>
-            <td colSpan={3} className="border border-black font-bold text-center">
-              Birdies
-            </td>
-            {totals.map((t, i) => (
-              <React.Fragment key={i}>
-                <td className="border border-black text-center">{t.birdies}</td>
-                <td className="border border-black"></td>
-              </React.Fragment>
-            ))}
-          </tr>
+            <tr>
+              <td colSpan={3} className="border border-black font-bold text-center">Points</td>
+              {totals.map((t, i) => (
+                <React.Fragment key={i}>
+                  <td className="border border-black text-center font-bold">{t.points}</td>
+                  <td className="border border-black"></td>
+                </React.Fragment>
+              ))}
+            </tr>
 
-          <tr>
-            <td colSpan={3} className="border border-black font-bold text-center">
-              Blobs
-            </td>
-            {totals.map((t, i) => (
-              <React.Fragment key={i}>
-                <td className="border border-black text-center">{t.blobs}</td>
-                <td className="border border-black"></td>
-              </React.Fragment>
-            ))}
-          </tr>
-        </tbody>
-      </table>
+            <tr>
+              <td colSpan={3} className="border border-black font-bold text-center">Birdies</td>
+              {totals.map((t, i) => (
+                <React.Fragment key={i}>
+                  <td className="border border-black text-center">{t.birdies}</td>
+                  <td className="border border-black"></td>
+                </React.Fragment>
+              ))}
+            </tr>
 
-      <div className="mt-6 text-center text-sm">
+            <tr>
+              <td colSpan={3} className="border border-black font-bold text-center">Blobs</td>
+              {totals.map((t, i) => (
+                <React.Fragment key={i}>
+                  <td className="border border-black text-center">{t.blobs}</td>
+                  <td className="border border-black"></td>
+                </React.Fragment>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-4 text-center text-xs sm:text-sm">
         Please take a screenshot and send it separately.
       </div>
     </div>
