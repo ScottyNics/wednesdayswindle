@@ -37,14 +37,19 @@ export default function App() {
   const [tempScore, setTempScore] = useState(4);
 
   useEffect(() => {
-    const saved = localStorage.getItem("purple-simple");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setStep(parsed.step || "gate");
-      setPlayers(parsed.players || defaultPlayers);
-      setScores(parsed.scores || {});
-    }
-  }, []);
+  const saved = localStorage.getItem("purple-simple");
+
+  if (saved) {
+    const parsed = JSON.parse(saved);
+
+    // Never restore directly into entry screen
+    const safeStep = parsed.step === "entry" ? "card" : parsed.step;
+
+    setStep(safeStep || "gate");
+    setPlayers(parsed.players || defaultPlayers);
+    setScores(parsed.scores || {});
+  }
+}, []);
 
   useEffect(() => {
     localStorage.setItem(
