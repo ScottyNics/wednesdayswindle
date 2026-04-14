@@ -37,23 +37,18 @@ export default function App() {
   const [tempScore, setTempScore] = useState(4);
 
   useEffect(() => {
-  const saved = localStorage.getItem("purple-simple");
-
-  if (saved) {
-    const parsed = JSON.parse(saved);
-
-    // Never restore directly into entry screen
-    const safeStep = parsed.step === "entry" ? "card" : parsed.step;
-
-    setStep(safeStep || "gate");
-    setPlayers(parsed.players || defaultPlayers);
-    setScores(parsed.scores || {});
-  }
-}, []);
+    const saved = localStorage.getItem("wednesday-swindle");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setStep(parsed.step || "gate");
+      setPlayers(parsed.players || defaultPlayers);
+      setScores(parsed.scores || {});
+    }
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(
-      "purple-simple",
+      "wednesday-swindle",
       JSON.stringify({ step, players, scores })
     );
   }, [step, players, scores]);
@@ -156,7 +151,7 @@ export default function App() {
             onChange={(e) => setCode(e.target.value)}
           />
           <button
-            className="mt-6 bg-purple-600 text-white w-full p-5 rounded-2xl text-2xl font-semibold"
+            className="mt-6 bg-emerald-600 text-white w-full p-5 rounded-2xl text-2xl font-semibold"
             onClick={() =>
               code === todayCode ? setStep("players") : alert("Wrong code")
             }
@@ -200,7 +195,7 @@ export default function App() {
           </div>
         ))}
         <button
-          className="bg-purple-600 text-white w-full p-4 rounded-2xl text-xl font-semibold mt-4"
+          className="bg-emerald-600 text-white w-full p-4 rounded-2xl text-xl font-semibold mt-4"
           onClick={() => setStep("card")}
         >
           Start Round
@@ -250,7 +245,7 @@ export default function App() {
         </button>
 
         <button
-          className="mt-3 w-full bg-purple-600 text-white p-4 rounded-xl text-xl"
+          className="mt-3 w-full bg-emerald-600 text-white p-4 rounded-xl text-xl"
           onClick={() => saveHoleScore(tempScore)}
         >
           Submit
