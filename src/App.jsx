@@ -62,6 +62,16 @@ export default function App() {
 
   const activePlayers = players.filter((p) => p.name.trim());
 
+  const endRound = () => {
+    localStorage.removeItem("wednesday-swindle");
+    setStep("gate");
+    setCode("");
+    setPlayers(defaultPlayers);
+    setScores({});
+    setSelectedHole(null);
+    setSelectedPlayer(0);
+  };
+
   const cancelRound = () => {
     if (!window.confirm("Cancel this round and start over?")) return;
     setStep("players");
@@ -164,6 +174,9 @@ export default function App() {
         <button className="w-full bg-emerald-600 text-white text-2xl font-bold py-5 rounded-3xl mt-6" onClick={() => setStep("card")}>
           Start Round
         </button>
+        <button className="w-full bg-slate-700 text-white text-xl font-bold py-4 rounded-3xl mt-4 shadow-lg" onClick={endRound}>
+          Cancel
+        </button>
       </div>
     );
   }
@@ -197,7 +210,7 @@ export default function App() {
   }
 
   return (
-    <div className="p-2 max-w-full mx-auto">
+    <div className="min-h-screen bg-slate-900 text-white p-3 max-w-full mx-auto">
       <div className="overflow-x-auto">
         <table className="w-full text-xs border-2 border-black" style={{ borderCollapse: "collapse" }}>
           <thead>
@@ -212,10 +225,10 @@ export default function App() {
             <tr>
               {activePlayers.map((_, i) => (
                 <React.Fragment key={i}>
-                  <th className="border border-black text-center h-20 w-10">
+                  <th className="border border-black text-center h-20 w-20">
                     <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", margin: "0 auto" }}>Score</div>
                   </th>
-                  <th className="border border-black text-center h-20 w-10">
+                  <th className="border border-black text-center h-20 w-20">
                     <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", margin: "0 auto" }}>Points</div>
                   </th>
                 </React.Fragment>
@@ -235,7 +248,7 @@ export default function App() {
                   const scoreDisplay = gross == null ? "" : gross === "NS" ? "-" : gross;
                   return (
                     <React.Fragment key={idx}>
-                      <td className="border border-black text-center align-middle">{`${scoreDisplay}${scoreDisplay ? " " : ""}${stars}`}</td>
+                      <td className="border border-black text-center align-middle"><span>{scoreDisplay}{scoreDisplay ? " " : ""}<span style={{ fontSize: "0.5em" }}>{stars}</span></span></td>
                       <td className="border border-black text-center align-middle" style={{ backgroundColor: gross == null ? "transparent" : pts === 2 ? "#fde68a" : pts < 2 ? "#fecaca" : "#bbf7d0" }}>{gross == null ? "" : pts}</td>
                     </React.Fragment>
                   );
@@ -261,8 +274,9 @@ export default function App() {
         </table>
       </div>
       <div className="mt-4 text-center text-sm">Please take a screenshot and send it separately.</div>
-      <div className="flex justify-center mt-4">
+      <div className="flex justify-center mt-4 gap-3">
         <button className="bg-red-600 text-white px-6 py-4 rounded-2xl text-lg font-bold" onClick={cancelRound}>Cancel Round</button>
+        <button className="bg-emerald-600 text-white px-6 py-4 rounded-2xl text-lg font-bold shadow-lg" onClick={endRound}>End Round</button>
       </div>
     </div>
   );
