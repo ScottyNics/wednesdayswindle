@@ -16,17 +16,10 @@ export default function App() {
 
   const todayCode = (() => {
     const d = new Date();
-    return `${String(d.getDate()).padStart(2, "0")}${String(
-      d.getMonth() + 1
-    ).padStart(2, "0")}${String(d.getFullYear()).slice(-2)}`;
+    return `${String(d.getDate()).padStart(2, "0")}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getFullYear()).slice(-2)}`;
   })();
 
-  const defaultPlayers = [
-    { name: "", hcp: 0 },
-    { name: "", hcp: 0 },
-    { name: "", hcp: 0 },
-    { name: "", hcp: 0 }
-  ];
+  const defaultPlayers = Array(4).fill(null).map(() => ({ name: "", hcp: 0 }));
 
   const [step, setStep] = useState("gate");
   const [code, setCode] = useState("");
@@ -40,17 +33,15 @@ export default function App() {
     const saved = localStorage.getItem("wednesday-swindle");
     if (saved) {
       const parsed = JSON.parse(saved);
-      setStep(parsed.step || "gate");
+      const safeStep = parsed.step === "entry" ? "card" : parsed.step;
+      setStep(safeStep || "gate");
       setPlayers(parsed.players || defaultPlayers);
       setScores(parsed.scores || {});
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(
-      "wednesday-swindle",
-      JSON.stringify({ step, players, scores })
-    );
+    localStorage.setItem("wednesday-swindle", JSON.stringify({ step, players, scores }));
   }, [step, players, scores]);
 
   const activePlayers = players.filter((p) => p.name.trim());
@@ -74,39 +65,23 @@ export default function App() {
     return Math.max(0, 2 + par + shots - Number(gross));
   };
 
-  const totals = useMemo(() => {
-    return activePlayers.map((p, idx) => {
-      let points = 0;
-      let birdies = 0;
-      let blobs = 0;
-
-      HOLES.forEach((h) => {
-        const gross = scores[h.hole]?.[idx];
-        const shots = getShots(p.hcp, h.si);
-        const pts = getPoints(gross, h.par, shots);
-
-        points += pts;
-
-        if (gross != null && gross !== "NS" && Number(gross) < h.par) {
-          birdies++;
-        }
-
-        if (gross != null && pts === 0) blobs++;
-      });
-
-      return { points, birdies, blobs };
+  const totals = useMemo(() => activePlayers.map((p, idx) => {
+    let points = 0, birdies = 0, blobs = 0;
+    HOLES.forEach((h) => {
+      const gross = scores[h.hole]?.[idx];
+      const pts = getPoints(gross, h.par, getShots(p.hcp, h.si));
+      points += pts;
+      if (gross != null && gross !== "NS" && Number(gross) < h.par) birdies++;
+      if (gross != null && pts === 0) blobs++;
     });
-  }, [scores, activePlayers]);
+    return { points, birdies, blobs };
+  }), [scores, activePlayers]);
 
   const saveHoleScore = (value) => {
     const hole = selectedHole;
-
     setScores((prev) => ({
       ...prev,
-      [hole]: {
-        ...(prev[hole] || {}),
-        [selectedPlayer]: value === 0 ? "NS" : value
-      }
+      [hole]: { ...(prev[hole] || {}), [selectedPlayer]: value === 0 ? "NS" : value }
     }));
 
     if (selectedPlayer + 1 < activePlayers.length) {
@@ -119,42 +94,20 @@ export default function App() {
     }
   };
 
-  const editPlayer = (index) => {
-    const newName = prompt("Player name", activePlayers[index].name);
-    if (newName === null) return;
-
-    const newHcp = prompt("Handicap", activePlayers[index].hcp);
-    if (newHcp === null) return;
-
-    const updated = [...players];
-    const realIndex = players.findIndex(
-      (p) => p.name === activePlayers[index].name
-    );
-
-    updated[realIndex] = {
-      name: newName,
-      hcp: Number(newHcp)
-    };
-
-    setPlayers(updated);
-  };
-
   if (step === "gate") {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-        <div className="w-full max-w-md text-center">
-          <h1 className="text-3xl font-bold mb-6">Wednesday Swindle</h1>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-6">
+        <div className="w-full max-w-md flex flex-col items-center justify-center">
+          <h1 className="text-4xl font-bold mb-8 text-center">Wednesday Swindle</h1>
           <input
-            className="border-2 p-5 rounded-2xl w-full text-2xl text-center"
+            className="w-full text-center text-3xl border-2 rounded-3xl px-6 py-6"
             placeholder="Enter today's code"
             value={code}
             onChange={(e) => setCode(e.target.value)}
           />
           <button
-            className="mt-6 bg-emerald-600 text-white w-full p-5 rounded-2xl text-2xl font-semibold"
-            onClick={() =>
-              code === todayCode ? setStep("players") : alert("Wrong code")
-            }
+            className="mt-6 w-full text-3xl font-bold bg-emerald-600 text-white rounded-3xl py-6"
+            onClick={() => (code === todayCode ? setStep("players") : alert("Wrong code"))}
           >
             Enter
           </button>
@@ -165,12 +118,12 @@ export default function App() {
 
   if (step === "players") {
     return (
-      <div className="min-h-screen p-4 max-w-md mx-auto bg-slate-50">
-        <h2 className="text-2xl font-bold mb-4 text-center">Players</h2>
+      <div className="min-h-screen bg-slate-50 px-4 py-6 max-w-md mx-auto">
+        <h2 className="text-3xl font-bold mb-6 text-center">Players</h2>
         {players.map((p, i) => (
-          <div key={i} className="flex gap-3 mb-3 items-center">
+          <div key={i} className="flex gap-3 mb-4 items-center">
             <input
-              className="border-2 p-4 rounded-xl text-xl flex-1"
+              className="flex-1 border-2 rounded-2xl px-5 py-5 text-2xl"
               placeholder={`Player ${i + 1}`}
               value={p.name}
               onChange={(e) => {
@@ -181,9 +134,7 @@ export default function App() {
             />
             <input
               type="number"
-              min="0"
-              max="99"
-              className="border-2 p-4 rounded-xl text-xl w-20 text-center"
+              className="w-20 border-2 rounded-2xl px-2 py-5 text-2xl text-center"
               value={p.hcp}
               onFocus={(e) => e.target.select()}
               onChange={(e) => {
@@ -194,10 +145,7 @@ export default function App() {
             />
           </div>
         ))}
-        <button
-          className="bg-emerald-600 text-white w-full p-4 rounded-2xl text-xl font-semibold mt-4"
-          onClick={() => setStep("card")}
-        >
+        <button className="w-full bg-emerald-600 text-white text-2xl font-bold py-5 rounded-3xl mt-6" onClick={() => setStep("card")}>
           Start Round
         </button>
       </div>
@@ -209,182 +157,91 @@ export default function App() {
     const player = activePlayers[selectedPlayer];
 
     return (
-      <div className="min-h-screen p-4 max-w-md mx-auto">
-        <h2 className="text-2xl mb-6 text-center font-semibold">
-          Hole {hole.hole} – {player.name}
-        </h2>
-
-        <div className="flex gap-3 items-center">
-          <button
-            className="px-5 py-4 border rounded-xl text-2xl"
-            onClick={() => setTempScore((s) => Math.max(0, s - 1))}
-          >
-            -
-          </button>
-
+      <div className="min-h-screen px-4 py-6 max-w-md mx-auto">
+        <h2 className="text-3xl font-bold text-center mb-8">Hole {hole.hole} - {player.name}</h2>
+        <div className="flex gap-4 items-center">
+          <button className="px-6 py-6 text-4xl border rounded-2xl" onClick={() => setTempScore((s) => Math.max(0, s - 1))}>-</button>
           <input
             type="number"
-            className="border text-center text-4xl p-4 rounded-xl flex-1"
+            className="flex-1 text-center text-5xl border rounded-2xl py-6"
             value={tempScore}
             onChange={(e) => setTempScore(Number(e.target.value))}
           />
-
-          <button
-            className="px-5 py-4 border rounded-xl text-2xl"
-            onClick={() => setTempScore((s) => s + 1)}
-          >
-            +
-          </button>
+          <button className="px-6 py-6 text-4xl border rounded-2xl" onClick={() => setTempScore((s) => s + 1)}>+</button>
         </div>
-
-        <button
-          className="mt-4 w-full bg-gray-700 text-white p-4 rounded-xl text-xl"
-          onClick={() => saveHoleScore("NS")}
-        >
-          No score
-        </button>
-
-        <button
-          className="mt-3 w-full bg-emerald-600 text-white p-4 rounded-xl text-xl"
-          onClick={() => saveHoleScore(tempScore)}
-        >
-          Submit
-        </button>
+        <button className="mt-6 w-full bg-gray-700 text-white text-2xl font-bold py-5 rounded-3xl" onClick={() => saveHoleScore("NS")}>No score</button>
+        <button className="mt-4 w-full bg-emerald-600 text-white text-2xl font-bold py-5 rounded-3xl" onClick={() => saveHoleScore(tempScore)}>Submit</button>
       </div>
     );
   }
 
   return (
     <div className="p-2 max-w-full mx-auto">
-      <div className="flex justify-center mb-3">
-        <button
-          className="bg-red-600 text-white px-4 py-3 rounded-xl text-sm font-semibold"
-          onClick={cancelRound}
-        >
-          Cancel Round
-        </button>
-      </div>
-
       <div className="overflow-x-auto">
-        <table
-          className="w-full text-xs sm:text-sm border-2 border-black table-fixed"
-          style={{ borderCollapse: "collapse" }}
-        >
+        <table className="w-full text-xs border-2 border-black" style={{ borderCollapse: "collapse" }}>
           <thead>
             <tr>
               <th className="border border-black text-center" rowSpan={2}>Hole</th>
               <th className="border border-black text-center" rowSpan={2}>Par</th>
               <th className="border border-black text-center" rowSpan={2}>S.I.</th>
               {activePlayers.map((p, i) => (
-                <th
-                  key={i}
-                  colSpan={2}
-                  className="border border-black text-center cursor-pointer"
-                  onClick={() => editPlayer(i)}
-                >
-                  {p.name}
-                </th>
+                <th key={i} colSpan={2} className="border border-black text-center">{p.name}</th>
               ))}
             </tr>
             <tr>
               {activePlayers.map((_, i) => (
                 <React.Fragment key={i}>
-                  <th className="border border-black text-center h-16 w-8">
-                    <div className="-rotate-90 whitespace-nowrap">Score</div>
+                  <th className="border border-black text-center h-20 w-10">
+                    <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", margin: "0 auto" }}>Score</div>
                   </th>
-                  <th className="border border-black text-center h-16 w-8">
-                    <div className="-rotate-90 whitespace-nowrap">Points</div>
+                  <th className="border border-black text-center h-20 w-10">
+                    <div style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", margin: "0 auto" }}>Points</div>
                   </th>
                 </React.Fragment>
               ))}
             </tr>
           </thead>
-
           <tbody>
             {HOLES.map((h) => (
-              <tr
-                key={h.hole}
-                className="cursor-pointer"
-                style={{ backgroundColor: h.hole % 2 === 1 ? "#bfdbfe" : "#dbeafe" }}
-                onClick={() => {
-                  setSelectedHole(h.hole);
-                  setSelectedPlayer(0);
-                  setTempScore(h.par);
-                  setStep("entry");
-                }}
-              >
-                <td className="border border-black text-center font-medium">{h.hole}</td>
+              <tr key={h.hole} className="cursor-pointer" style={{ backgroundColor: h.hole % 2 ? "#bfdbfe" : "#dbeafe" }} onClick={() => { setSelectedHole(h.hole); setSelectedPlayer(0); setTempScore(h.par); setStep("entry"); }}>
+                <td className="border border-black text-center">{h.hole}</td>
                 <td className="border border-black text-center">{h.par}</td>
                 <td className="border border-black text-center">{h.si}</td>
-
                 {activePlayers.map((p, idx) => {
                   const gross = scores[h.hole]?.[idx];
-                  const shots = getShots(p.hcp, h.si);
-                  const pts = getPoints(gross, h.par, shots);
-                  const stars = "*".repeat(Math.min(shots, 2));
+                  const pts = getPoints(gross, h.par, getShots(p.hcp, h.si));
+                  const stars = "*".repeat(Math.min(getShots(p.hcp, h.si), 2));
                   const scoreDisplay = gross == null ? "" : gross === "NS" ? "-" : gross;
-
                   return (
                     <React.Fragment key={idx}>
-                      <td className="border border-black text-center align-middle">
-                        {`${scoreDisplay}${scoreDisplay ? " " : ""}${stars}`}
-                      </td>
-                      <td
-                        className="border border-black text-center font-semibold align-middle"
-                        style={{
-                          backgroundColor:
-                            gross == null
-                              ? "transparent"
-                              : pts === 2
-                              ? "#fde68a"
-                              : pts < 2
-                              ? "#fecaca"
-                              : "#bbf7d0"
-                        }}
-                      >
-                        {gross == null ? "" : pts}
-                      </td>
+                      <td className="border border-black text-center align-middle">{`${scoreDisplay}${scoreDisplay ? " " : ""}${stars}`}</td>
+                      <td className="border border-black text-center align-middle" style={{ backgroundColor: gross == null ? "transparent" : pts === 2 ? "#fde68a" : pts < 2 ? "#fecaca" : "#bbf7d0" }}>{gross == null ? "" : pts}</td>
                     </React.Fragment>
                   );
                 })}
               </tr>
             ))}
-
-            <tr>
-              <td colSpan={3} className="border border-black font-bold text-center">Points</td>
-              {totals.map((t, i) => (
-                <React.Fragment key={i}>
-                  <td className="border border-black text-center font-bold">{t.points}</td>
-                  <td className="border border-black"></td>
-                </React.Fragment>
-              ))}
-            </tr>
-
-            <tr>
-              <td colSpan={3} className="border border-black font-bold text-center">Birdies</td>
-              {totals.map((t, i) => (
-                <React.Fragment key={i}>
-                  <td className="border border-black text-center">{t.birdies}</td>
-                  <td className="border border-black"></td>
-                </React.Fragment>
-              ))}
-            </tr>
-
-            <tr>
-              <td colSpan={3} className="border border-black font-bold text-center">Blobs</td>
-              {totals.map((t, i) => (
-                <React.Fragment key={i}>
-                  <td className="border border-black text-center">{t.blobs}</td>
-                  <td className="border border-black"></td>
-                </React.Fragment>
-              ))}
-            </tr>
+            {[
+              ["Points", "points"],
+              ["Birdies", "birdies"],
+              ["Blobs", "blobs"]
+            ].map(([label, key]) => (
+              <tr key={label}>
+                <td colSpan={3} className="border border-black text-center font-bold">{label}</td>
+                {totals.map((t, i) => (
+                  <React.Fragment key={i}>
+                    <td className="border border-black text-center font-bold">{t[key]}</td>
+                    <td className="border border-black"></td>
+                  </React.Fragment>
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
-
-      <div className="mt-4 text-center text-xs sm:text-sm">
-        Please take a screenshot and send it separately.
+      <div className="mt-4 text-center text-sm">Please take a screenshot and send it separately.</div>
+      <div className="flex justify-center mt-4">
+        <button className="bg-red-600 text-white px-6 py-4 rounded-2xl text-lg font-bold" onClick={cancelRound}>Cancel Round</button>
       </div>
     </div>
   );
