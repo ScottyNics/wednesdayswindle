@@ -30,13 +30,29 @@ export default function App() {
   const [tempScore, setTempScore] = useState(4);
 
   useEffect(() => {
-    const saved = localStorage.getItem("wednesday-swindle");
-    if (saved) {
+    try {
+      const saved = localStorage.getItem("wednesday-swindle");
+      if (!saved) return;
+
       const parsed = JSON.parse(saved);
-      const safeStep = parsed.step === "entry" ? "card" : parsed.step;
-      setStep(safeStep || "gate");
-      setPlayers(parsed.players || defaultPlayers);
-      setScores(parsed.scores || {});
+
+      // Only restore known-safe screens after deployments / refreshes
+      const validSteps = ["gate", "players", "card"];
+      const safeStep = validSteps.includes(parsed.step) ? parsed.step : "gate";
+
+      setStep(safeStep);
+      setPlayers(
+        Array.isArray(parsed.players) && parsed.players.length
+          ? parsed.players
+          : defaultPlayers
+      );
+      setScores(parsed.scores && typeof parsed.scores === "object" ? parsed.scores : {});
+    } catch (error) {
+      console.error("Failed to restore saved round", error);
+      localStorage.removeItem("wednesday-swindle");
+      setStep("gate");
+      setPlayers(defaultPlayers);
+      setScores({});
     }
   }, []);
 
@@ -153,6 +169,11 @@ export default function App() {
   }
 
   if (step === "entry") {
+    // Crash-proof protection if app refreshes during score entry
+    if (selectedHole == null || !activePlayers[selectedPlayer]) {
+      setStep("card");
+      return null;
+    }
     const hole = HOLES.find((h) => h.hole === selectedHole);
     const player = activePlayers[selectedPlayer];
 
