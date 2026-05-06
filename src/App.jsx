@@ -287,6 +287,13 @@ export default function App() {
         </div>
 
         <button
+          className="w-full mt-6 bg-emerald-600 text-white text-2xl font-bold py-4 rounded-3xl"
+          onClick={() => setStep("card")}
+        >
+          Back to Scorecard
+        </button>
+
+        <button
           className="w-full mt-6 bg-red-600 text-white text-2xl font-bold py-4 rounded-3xl"
           onClick={resetToGate}
         >
