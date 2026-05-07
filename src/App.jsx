@@ -276,7 +276,12 @@ export default function App() {
                   key={p.name}
                   className={i === 0 ? "bg-emerald-100 font-bold" : "border-t"}
                 >
-                  <td className="p-3">{p.name}</td>
+                  <td className="p-3">
+                    {p.name}
+                    <span className="text-sm text-slate-500 ml-2">
+                      (HCP {activePlayers.find(ap => ap.name === p.name)?.hcp})
+                    </span>
+                  </td>
                   <td className="p-3 text-center">{p.points}</td>
                   <td className="p-3 text-center">{p.birdies}</td>
                   <td className="p-3 text-center">{p.blobs}</td>
