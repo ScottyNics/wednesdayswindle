@@ -279,7 +279,7 @@ export default function App() {
                   <td className="p-3">
                     {p.name}
                     <span className="text-sm text-slate-500 ml-2">
-                      (HCP {activePlayers.find(ap => ap.name === p.name)?.hcp})
+                      ({activePlayers.find(ap => ap.name === p.name)?.hcp})
                     </span>
                   </td>
                   <td className="p-3 text-center">{p.points}</td>
