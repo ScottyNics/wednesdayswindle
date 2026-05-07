@@ -13,7 +13,7 @@ const HOLES = [
   { hole: 10, par: 4, si: 12 }
 ];
 
-const defaultPlayers = Array.from({ length: 4 }, () => ({ name: "", hcp: 0 }));
+const defaultPlayers = Array.from({ length: 4 }, () => ({ name: "", hcp: "" }));
 
 export default function App() {
   const todayCode = (() => {
@@ -177,6 +177,7 @@ export default function App() {
               type="number"
               className="w-14 text-xl text-center p-3 rounded-2xl border"
               value={p.hcp}
+              placeholder="0"
               onFocus={(e) => e.target.select()}
               onChange={(e) => {
                 const copy = [...players];
