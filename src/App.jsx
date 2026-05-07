@@ -300,11 +300,20 @@ export default function App() {
         </button>
 
         <button
-          className="w-full mt-6 bg-red-600 text-white text-2xl font-bold py-4 rounded-3xl"
-          onClick={resetToGate}
+          className="w-full mt-4 bg-red-600 text-white text-2xl font-bold py-4 rounded-3xl"
+          onClick={() => {
+            const confirmed = window.confirm(
+              "This will delete all scores, are you sure you want to end this round?"
+            );
+
+            if (confirmed) {
+              resetToGate();
+            }
+          }}
         >
           End Round
         </button>
+
       </div>
     );
   }
@@ -454,10 +463,19 @@ export default function App() {
 
         <button
           className="w-full mt-4 bg-red-600 text-white text-xl font-bold py-4 rounded-3xl"
-          onClick={resetToGate}
+          onClick={() => {
+            const confirmed = window.confirm(
+              "This will delete all scores, are you sure you want to cancel this round?"
+            );
+
+            if (confirmed) {
+              resetToGate();
+            }
+          }}
         >
           Cancel Round
         </button>
+
       </div>
     </div>
   );
