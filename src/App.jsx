@@ -137,6 +137,7 @@ export default function App() {
         <div className="w-full max-w-md">
           <h1 className="text-white text-4xl font-bold text-center mb-8">
             Wednesday Swindle
+            v1.0
           </h1>
           <input
             className="w-full text-4xl text-center py-3 px-4 rounded-3xl border-2 bg-white"
