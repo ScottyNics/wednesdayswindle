@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const HOLES = [
   { hole: 1, par: 5, si: 17 },
@@ -30,6 +30,34 @@ export default function App() {
   const [selectedHole, setSelectedHole] = useState(null);
   const [selectedPlayer, setSelectedPlayer] = useState(0);
   const [tempScore, setTempScore] = useState(4);
+  const [pendingHole, setPendingHole] = useState(null);
+  const changeScoresDialog = useRef(null);
+
+  useEffect(() => {
+    const dialog = changeScoresDialog.current;
+    if (!dialog) return;
+    if (pendingHole && !dialog.open) dialog.showModal();
+    if (!pendingHole && dialog.open) dialog.close();
+  }, [pendingHole]);
+
+  const openHoleEntry = (hole) => {
+    setPendingHole(null);
+    setSelectedHole(hole.hole);
+    setSelectedPlayer(0);
+    setTempScore(hole.par);
+    setStep("entry");
+  };
+
+  const selectHole = (hole) => {
+    const hasScores = Object.values(scores[hole.hole] || {}).some(
+      (score) => score != null && score !== ""
+    );
+    if (hasScores) {
+      setPendingHole(hole);
+    } else {
+      openHoleEntry(hole);
+    }
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem("wednesday-swindle");
@@ -323,6 +351,39 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
+      <dialog
+        ref={changeScoresDialog}
+        aria-labelledby="change-scores-title"
+        aria-describedby="change-scores-description"
+        onCancel={() => setPendingHole(null)}
+        onClose={() => setPendingHole(null)}
+        className="w-full max-w-sm rounded-3xl bg-white p-6 text-slate-900 backdrop:bg-black/60"
+        style={{ width: "calc(100% - 2rem)" }}
+      >
+        <h2 id="change-scores-title" className="text-2xl font-bold mb-4">
+          Change scores?
+        </h2>
+        <p id="change-scores-description" className="text-lg mb-6">
+          Are you sure you want to change the scores for hole number {pendingHole?.hole}?
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="flex-1 rounded-2xl bg-emerald-600 py-4 text-xl font-bold text-white"
+            onClick={() => pendingHole && openHoleEntry(pendingHole)}
+          >
+            Yes
+          </button>
+          <button
+            type="button"
+            autoFocus
+            className="flex-1 rounded-2xl bg-slate-700 py-4 text-xl font-bold text-white"
+            onClick={() => setPendingHole(null)}
+          >
+            Go back
+          </button>
+        </div>
+      </dialog>
       <div className="px-2 py-2">
         <div className="bg-white text-black rounded-3xl overflow-hidden">
           <div className="overflow-x-auto">
@@ -372,12 +433,7 @@ export default function App() {
                   <tr
                     key={h.hole}
                     className="border-t odd:bg-white even:bg-slate-50 cursor-pointer"
-                    onClick={() => {
-                      setSelectedHole(h.hole);
-                      setSelectedPlayer(0);
-                      setTempScore(h.par);
-                      setStep("entry");
-                    }}
+                    onClick={() => selectHole(h)}
                   >
                     <td className="p-2 text-center">{h.hole}</td>
                     <td className="p-2 text-center">{h.par}</td>
