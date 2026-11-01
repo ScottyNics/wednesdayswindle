@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createDatabaseApi } from './api';
+import PlayerManagement from './PlayerManagement';
 import { projectUrl, publishableKey } from './config';
 
 const inputClass = 'w-full rounded-2xl border border-slate-300 bg-white p-4 text-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600';
 const buttonClass = 'w-full rounded-2xl bg-emerald-600 p-4 text-lg font-bold text-white disabled:opacity-50';
 
 export default function SeasonPreview() {
+  const [tab, setTab] = useState('courses');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [session, setSession] = useState(null);
@@ -91,8 +93,12 @@ export default function SeasonPreview() {
             </form>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-3"><h2 className="text-2xl font-bold">Your courses</h2><button onClick={signOut} className="rounded-xl border border-slate-300 px-3 py-2 font-semibold">Sign out</button></div>
+              <div className="flex items-center justify-between gap-3"><h2 className="text-2xl font-bold">Club admin</h2><button onClick={signOut} className="rounded-xl border border-slate-300 px-3 py-2 font-semibold">Sign out</button></div>
               <p className="mt-3 mb-5 text-sm font-semibold text-emerald-700">Connected to Supabase · Admin access</p>
+              <nav aria-label="Admin sections" className="mb-6 flex gap-2 rounded-2xl bg-slate-100 p-1">
+                {['courses', 'players'].map(value => <button key={value} type="button" aria-pressed={tab===value} onClick={()=>setTab(value)} className={`flex-1 rounded-xl p-3 font-semibold ${tab===value ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600'}`}>{value==='courses' ? 'Courses' : 'Players'}</button>)}
+              </nav>
+              {tab === 'players' ? <PlayerManagement api={config.api} session={session} /> : <>
               {courses.length ? <>
                 <label htmlFor="course-select" className="mb-2 block font-semibold">Course and tees</label>
                 <select id="course-select" value={selectedId} onChange={e=>setSelectedId(e.target.value)} className={inputClass}>
@@ -105,11 +111,12 @@ export default function SeasonPreview() {
                 </>}
               </> : <p>No courses are available. Check the course setup in Supabase.</p>}
               <button onClick={refresh} disabled={busy} className={`${buttonClass} mt-5`}>{busy ? 'Loading…' : 'Refresh courses'}</button>
+              </>}
             </>
           )}
           {error && <p role="alert" className="mt-5 rounded-2xl bg-red-50 p-4 text-red-800">{error}</p>}
         </section>
-        <p className="mt-6 text-center text-sm text-slate-300">First connection check: sign in and view course details. Season score entry will follow.</p>
+        <p className="mt-6 text-center text-sm text-slate-300">Manage your courses and season players. Season score entry will follow.</p>
         <a className="mt-5 block text-center font-semibold underline underline-offset-4" href="?scorecard=1">Open the existing scorecard</a>
       </div>
     </main>

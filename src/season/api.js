@@ -1,3 +1,4 @@
+import { currentHandicaps, parseHandicap } from './players.js';
 // Only use a public browser key here. Database permissions enforce access.
 export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
   let base;
@@ -31,6 +32,10 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
       const data = response.status === 204 ? null : await response.json().catch(() => null);
       if (!response.ok) {
         if (path.startsWith('/auth/v1/token')) throw new Error('Unable to sign in. Check your email and password, and that the account is confirmed.');
+        if (path.startsWith('/rest/v1/rpc/sw_register_season_player')) {
+          if (data?.code === '22023') throw new Error(data.message);
+          if (data?.code === 'PGRST202') throw new Error('Run database/01-player-management.sql in Supabase before adding players.');
+        }
         if (response.status === 401) throw new Error('Your session has expired. Sign out and sign in again.');
         if (response.status === 403) throw new Error('Access denied. Check the admin role and database permissions.');
         throw new Error('The database request failed. Check your project settings and try again.');
@@ -59,6 +64,36 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
       const courses = await request(`/rest/v1/sw_courses?${coursesQuery}`, { token: session.token });
       if (!Array.isArray(courses)) throw new Error('Unexpected course response. Please try again.');
       return courses.map(course => ({ ...course, sw_course_holes: [...(course.sw_course_holes || [])].sort((a,b) => a.hole_number - b.hole_number) }));
+    },
+    async loadPlayerSetup(session) {
+      const [seasons, players] = await Promise.all([
+        request('/rest/v1/sw_seasons?select=id,name,start_date,end_date&order=start_date.desc,name.asc', { token: session.token }),
+        request('/rest/v1/sw_players?select=id,name&order=name.asc', { token: session.token })
+      ]);
+      if (!Array.isArray(seasons) || !Array.isArray(players)) throw new Error('Unexpected player setup response. Please try again.');
+      return { seasons, players };
+    },
+    async loadSeasonPlayers(session, seasonId) {
+      const filter = `eq.${seasonId}`;
+      const memberQuery = new URLSearchParams({ select: 'season_id,player_id,starting_handicap,joined_on,sw_players(id,name)', season_id: filter });
+      const changesQuery = new URLSearchParams({ select: 'id,season_id,player_id,handicap_after,effective_from,created_at', season_id: filter });
+      const [members, changes] = await Promise.all([
+        request(`/rest/v1/sw_season_players?${memberQuery}`, { token: session.token }),
+        request(`/rest/v1/sw_handicap_changes?${changesQuery}`, { token: session.token })
+      ]);
+      if (!Array.isArray(members) || !Array.isArray(changes)) throw new Error('Unexpected season response. Please try again.');
+      if (members.some(m => !m.sw_players)) throw new Error('A player record is unavailable. Please check the database permissions.');
+      return currentHandicaps(members, changes);
+    },
+    registerPlayer(session, { seasonId, name, handicap, existingPlayerId, joinedOn }) {
+      return request('/rest/v1/rpc/sw_register_season_player', {
+        token: session.token, method: 'POST', body: {
+          p_season_id: seasonId, p_name: name.trim(),
+          p_starting_handicap: parseHandicap(handicap),
+          p_existing_player_id: existingPlayerId || null,
+          p_joined_on: joinedOn
+        }
+      });
     },
     signOut: session => request('/auth/v1/logout?scope=local', { token: session.token, method: 'POST' })
   };
