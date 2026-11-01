@@ -32,6 +32,15 @@ export default function App() {
   const [tempScore, setTempScore] = useState(4);
   const [pendingHole, setPendingHole] = useState(null);
   const changeScoresDialog = useRef(null);
+  const [showCancelRound, setShowCancelRound] = useState(false);
+  const cancelRoundDialog = useRef(null);
+
+  useEffect(() => {
+    const dialog = cancelRoundDialog.current;
+    if (!dialog) return;
+    if (showCancelRound && !dialog.open) dialog.showModal();
+    if (!showCancelRound && dialog.open) dialog.close();
+  }, [showCancelRound]);
 
   useEffect(() => {
     const dialog = changeScoresDialog.current;
@@ -96,6 +105,7 @@ export default function App() {
   const activePlayers = players.filter((p) => p.name.trim());
 
   const resetToGate = () => {
+    setShowCancelRound(false);
     setStep("gate");
     setCode("");
     setPlayers(defaultPlayers);
@@ -384,6 +394,39 @@ export default function App() {
           </button>
         </div>
       </dialog>
+      <dialog
+        ref={cancelRoundDialog}
+        aria-labelledby="cancel-round-title"
+        aria-describedby="cancel-round-description"
+        onCancel={() => setShowCancelRound(false)}
+        onClose={() => setShowCancelRound(false)}
+        className="w-full max-w-sm rounded-3xl bg-white p-6 text-slate-900 backdrop:bg-black/60"
+        style={{ width: "calc(100% - 2rem)" }}
+      >
+        <h2 id="cancel-round-title" className="text-2xl font-bold mb-4">
+          Cancel round?
+        </h2>
+        <p id="cancel-round-description" className="text-lg mb-6">
+          This will delete all scores. Are you sure you want to cancel this round?
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="flex-1 rounded-2xl bg-emerald-600 py-4 text-xl font-bold text-white"
+            onClick={resetToGate}
+          >
+            Yes
+          </button>
+          <button
+            type="button"
+            autoFocus
+            className="flex-1 rounded-2xl bg-slate-700 py-4 text-xl font-bold text-white"
+            onClick={() => setShowCancelRound(false)}
+          >
+            Go back
+          </button>
+        </div>
+      </dialog>
       <div className="px-2 py-2">
         <div className="bg-white text-black rounded-3xl overflow-hidden">
           <div className="overflow-x-auto">
@@ -528,15 +571,7 @@ export default function App() {
 
         <button
           className="w-full mt-4 bg-red-600 text-white text-xl font-bold py-4 rounded-3xl"
-          onClick={() => {
-            const confirmed = window.confirm(
-              "This will delete all scores, are you sure you want to cancel this round?"
-            );
-
-            if (confirmed) {
-              resetToGate();
-            }
-          }}
+          onClick={() => setShowCancelRound(true)}
         >
           Cancel Round
         </button>
