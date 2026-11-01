@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 const HOLES = [
-  { hole: 1, par: 4, si: 17 },
+  { hole: 1, par: 5, si: 17 },
   { hole: 2, par: 4, si: 7 },
   { hole: 3, par: 4, si: 5 },
   { hole: 4, par: 3, si: 11 },
