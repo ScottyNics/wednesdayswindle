@@ -100,7 +100,9 @@ export default function App() {
           const gross = scores[h.hole]?.[idx];
           const pts = getPoints(gross, h.par, getShots(p.hcp, h.si));
           points += pts;
-          if (gross != null && gross !== "NS" && Number(gross) < h.par) birdies++;
+          if (gross != null && gross !== "NS" && Number(gross) < h.par) {
+            birdies += Number(gross) === h.par - 2 ? 2 : 1;
+          }
           if (gross != null && pts === 0) blobs++;
         });
 
@@ -385,6 +387,10 @@ export default function App() {
                       const gross = scores[h.hole]?.[idx];
                       const shots = getShots(p.hcp, h.si);
                       const pts = getPoints(gross, h.par, shots);
+                      const isEagle =
+                        gross != null &&
+                        gross !== "NS" &&
+                        Number(gross) === h.par - 2;
                       const isBirdie =
                         gross != null &&
                         gross !== "NS" &&
@@ -395,7 +401,9 @@ export default function App() {
                           <td className="p-2 text-center border-l border-slate-200">
                             <span
                               className={
-                                isBirdie
+                                isEagle
+                                  ? "inline-flex items-center justify-center w-6 h-6 rounded-full border-[5px] border-double border-emerald-600"
+                                  : isBirdie
                                   ? "inline-flex items-center justify-center w-6 h-6 rounded-full border-2 border-emerald-600"
                                   : ""
                               }
