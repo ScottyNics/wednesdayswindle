@@ -5,6 +5,7 @@ import WeeklyResults from './WeeklyResults';
 import RoundSetup from './RoundSetup';
 import PlayerManagement from './PlayerManagement';
 import SeasonSetup from './SeasonSetup';
+import CourseManagement from './CourseManagement';
 import { projectUrl, publishableKey } from './config';
 
 const inputClass = 'w-full rounded-2xl border border-slate-300 bg-white p-4 text-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600';
@@ -17,7 +18,6 @@ export default function SeasonPreview() {
   const [password, setPassword] = useState('');
   const [session, setSession] = useState(null);
   const [courses, setCourses] = useState([]);
-  const [selectedId, setSelectedId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const generation = useRef(0);
@@ -48,7 +48,6 @@ export default function SeasonPreview() {
       if (generation.current !== current) return;
       setSession({ ...next, role }); setCourses(loaded);
       setTab(role === 'admin' ? 'courses' : 'results');
-      setSelectedId(loaded.find(c => c.name === 'Bungay')?.id || loaded[0]?.id || '');
     } catch (e) {
       if (next) await config.api.signOut(next).catch(() => {});
       if (generation.current === current) setError(e.message);
@@ -57,16 +56,10 @@ export default function SeasonPreview() {
     }
   }
 
-  async function refresh() {
-    setBusy(true); setError(''); const current = ++generation.current;
-    try {
-      const loaded = await config.api.loadCourses(session);
-      if (generation.current === current) {
-        setCourses(loaded);
-        setSelectedId(id => loaded.some(c => c.id === id) ? id : loaded[0]?.id || '');
-      }
-    } catch (e) { if (generation.current === current) setError(e.message); }
-    finally { if (generation.current === current) setBusy(false); }
+  async function refreshCourses() {
+    const current = generation.current;
+    const loaded = await config.api.loadCourses(session);
+    if (generation.current === current) setCourses(loaded);
   }
 
   function signOut() {
@@ -79,7 +72,6 @@ export default function SeasonPreview() {
 
   const isMainAdmin = session?.role === 'admin';
   const allowedTabs = isMainAdmin ? ['courses', 'players', 'rounds', 'results', 'season', 'setup'] : ['results', 'season'];
-  const course = courses.find(c => c.id === selectedId);
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 to-emerald-950 px-4 py-8 text-white">
       <div className="mx-auto max-w-lg">
@@ -110,20 +102,7 @@ export default function SeasonPreview() {
               <nav aria-label="Admin sections" className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-1">
                 {allowedTabs.map(value => <button key={value} type="button" aria-pressed={tab===value} onClick={()=>setTab(value)} className={`min-w-[80px] flex-1 rounded-xl p-2 text-sm font-semibold ${tab===value ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600'}`}>{value==='courses' ? 'Courses' : value==='players' ? 'Players' : value==='rounds' ? 'Rounds' : value==='results' ? 'Results' : value==='setup' ? 'Setup' : 'Season'}</button>)}
               </nav>
-              {!allowedTabs.includes(tab) ? <p>Select an available section.</p> : tab === 'setup' ? <SeasonSetup api={config.api} session={session} /> : tab === 'players' ? <PlayerManagement api={config.api} session={session} /> : tab === 'season' ? <PublishedResults api={config.api} session={session} /> : tab === 'results' ? <WeeklyResults api={config.api} session={session} /> : tab === 'rounds' ? <RoundSetup api={config.api} session={session} courses={courses} /> : <>
-              {courses.length ? <>
-                <label htmlFor="course-select" className="mb-2 block font-semibold">Course and tees</label>
-                <select id="course-select" value={selectedId} onChange={e=>setSelectedId(e.target.value)} className={inputClass}>
-                  {courses.map(c=><option key={c.id} value={c.id}>{c.name} · {c.tees}</option>)}
-                </select>
-                {course && <>
-                  <p className="my-4 text-slate-600">{course.sw_course_holes.length} configured holes · Par {course.sw_course_holes.reduce((sum,h)=>sum+h.par,0)}</p>
-                  <table className="w-full text-center"><caption className="sr-only">Course hole details</caption><thead className="bg-slate-100"><tr><th scope="col" className="p-3">Hole</th><th scope="col">Par</th><th scope="col">S.I.</th></tr></thead><tbody>{course.sw_course_holes.map(h=><tr key={h.hole_number} className="border-t border-slate-200"><th scope="row" className="p-3 font-normal">{h.hole_number}</th><td>{h.par}</td><td>{h.stroke_index}</td></tr>)}</tbody></table>
-                  {!course.sw_course_holes.length && <p className="mt-3">No holes have been added to this course yet.</p>}
-                </>}
-              </> : <p>No courses are available. Check the course setup in Supabase.</p>}
-              <button onClick={refresh} disabled={busy} className={`${buttonClass} mt-5`}>{busy ? 'Loading…' : 'Refresh courses'}</button>
-              </>}
+              {!allowedTabs.includes(tab) ? <p>Select an available section.</p> : tab === 'setup' ? <SeasonSetup api={config.api} session={session} /> : tab === 'players' ? <PlayerManagement api={config.api} session={session} /> : tab === 'season' ? <PublishedResults api={config.api} session={session} /> : tab === 'results' ? <WeeklyResults api={config.api} session={session} /> : tab === 'rounds' ? <RoundSetup api={config.api} session={session} courses={courses} /> : <CourseManagement api={config.api} session={session} courses={courses} onChanged={refreshCourses} />}
             </>
           )}
           {error && <p role="alert" className="mt-5 rounded-2xl bg-red-50 p-4 text-red-800">{error}</p>}

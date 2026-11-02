@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import OnlineScorecard from './OnlineScorecard';
 import { ukToday } from './players';
+import { swindleHoles } from './courses';
 const field='w-full rounded-2xl border border-slate-300 bg-white p-3 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600';
 const handicap=value=>value<0?`+${Math.abs(value)}`:value;
 export default function RoundSetup({api,session,courses}) {
@@ -60,7 +61,9 @@ export default function RoundSetup({api,session,courses}) {
       <label htmlFor="round-season" className="mb-2 block font-semibold">Season</label><select id="round-season" required value={seasonId} onChange={e=>{setSeasonId(e.target.value);setError('');}} className={field}><option value="">Select season</option>{seasons.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
       <label htmlFor="round-date" className="mt-4 mb-2 block font-semibold">Round date</label><input id="round-date" type="date" required min={season?.start_date} max={season?(season.end_date<today?season.end_date:today):today} value={date} onChange={e=>{setDate(e.target.value);setError('');}} className={field}/>
       <label htmlFor="round-course" className="mt-4 mb-2 block font-semibold">Course and tees</label><select id="round-course" required value={courseId} onChange={e=>{setCourseId(e.target.value);setConfirmed(false);setError('');}} className={field}><option value="">Select course</option>{courses.map(c=><option key={c.id} value={c.id}>{c.name} · {c.tees}</option>)}</select>
-      {course&&course.sw_course_holes.length!==10&&<p className="mt-2 text-sm text-red-800">This Swindle preview requires ten configured holes.</p>}
+      {course&&swindleHoles(course).length!==10&&!event&&<p className="mt-2 text-sm text-red-800">Save a ten-hole Swindle layout for these tees in Courses first.</p>}
+      {course&&swindleHoles(course).length===10&&!event&&<p className="mt-2 text-sm text-slate-600">Swindle route: {swindleHoles(course).map(h=>h.hole_number).join(' → ')}</p>}
+      {event&&!mismatch&&<p className="mt-2 text-sm text-slate-600">Joining this week’s event uses the course details saved when its first group started.</p>}
       {mismatch&&<p className="mt-2 text-sm text-red-800">This date already has an event on another course. Choose that course to join it.</p>}
       {closed&&<p className="mt-3 text-red-800">This event is closed to new groups.</p>}
       <h4 className="mt-6 mb-2 font-bold">Players · {selected.length}/4</h4><p className="mb-3 text-xs text-slate-500">Handicaps apply to the chosen date. Used Jokers cannot be selected.</p>
@@ -71,7 +74,7 @@ export default function RoundSetup({api,session,courses}) {
         </div>;
       })}</div>}
       <label className="mt-5 flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm"><input type="checkbox" required checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} className="mt-1"/><span>These players have not started their round. Joker choices are final once I start this round.</span></label>
-      <button disabled={saving||loading||!options||!valid||course?.sw_course_holes.length!==10||mismatch||closed||!selected.length||!confirmed} className="mt-4 w-full rounded-2xl bg-emerald-600 p-4 text-lg font-bold text-white disabled:opacity-50">{saving?'Saving round…':'Start round'}</button>
+      <button disabled={saving||loading||!options||!valid||(!event&&swindleHoles(course).length!==10)||mismatch||closed||!selected.length||!confirmed} className="mt-4 w-full rounded-2xl bg-emerald-600 p-4 text-lg font-bold text-white disabled:opacity-50">{saving?'Saving round…':'Start round'}</button>
     </fieldset></form>
     {error&&<p role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-red-800">{error}</p>}
     <button disabled={saving} onClick={()=>{setError('');setRevision(n=>n+1);}} className="mt-4 w-full rounded-2xl border border-slate-300 p-3 font-semibold disabled:opacity-50">Refresh rounds</button>

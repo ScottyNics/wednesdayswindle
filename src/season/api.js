@@ -36,10 +36,11 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
           if (data?.code === '40001') { const error = new Error(data.message); error.code = '40001'; throw error; }
           if (data?.code === 'P0001' && /(weekly_event|reveal_season)/.test(path)) throw new Error(data.message);
           if (data?.code === '22023') throw new Error(data.message);
-          if (data?.code === 'PGRST202') throw new Error(/sw_season_plan|sw_create_season/.test(path) ? 'Run database/08-season-setup.sql in Supabase before setting up a season.' : path.includes('sw_organiser_') ? 'Run database/06-secondary-admin.sql in Supabase before signing in as an organiser.' : (/published|season_board|season_blackout|reveal_season/.test(path)) ? 'Run database/05-published-results.sql in Supabase before viewing season results.' : path.includes('weekly_event') ? 'Run database/04-weekly-results.sql in Supabase before reviewing results.' : path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
+          if (data?.code === 'PGRST202') throw new Error(path.includes('sw_save_course') ? 'Run database/09-course-management.sql in Supabase before saving courses.' : /sw_season_plan|sw_create_season/.test(path) ? 'Run database/08-season-setup.sql in Supabase before setting up a season.' : path.includes('sw_organiser_') ? 'Run database/06-secondary-admin.sql in Supabase before signing in as an organiser.' : (/published|season_board|season_blackout|reveal_season/.test(path)) ? 'Run database/05-published-results.sql in Supabase before viewing season results.' : path.includes('weekly_event') ? 'Run database/04-weekly-results.sql in Supabase before reviewing results.' : path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
         }
         if (response.status === 401) throw new Error('Your session has expired. Sign out and sign in again.');
         if (response.status === 403) throw new Error('Access denied. Check the admin role and database permissions.');
+        if (data?.code === '42703' && path.startsWith('/rest/v1/sw_courses')) throw new Error('Run database/09-course-management.sql in Supabase before managing courses.');
         if (data?.code === '42703' && path.startsWith('/rest/v1/sw_scorecards')) throw new Error('Run database/03-score-entry.sql in Supabase before entering scores.');
         throw new Error('The database request failed. Check your project settings and try again.');
       }
@@ -56,6 +57,14 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
       const data = await request('/auth/v1/token?grant_type=password', { method: 'POST', body: { email: email.trim(), password } });
       if (!data?.access_token || !data?.user?.id || !Number.isFinite(data.expires_in)) throw new Error('The sign-in response was incomplete. Try again.');
       return { token: data.access_token, userId: data.user.id, expiresAt: Date.now() + data.expires_in * 1000 };
+    },
+    async saveCourse(session, {courseId, requestId, revision, name, tees, holes, swindleHoles}) {
+      const saved = await request('/rest/v1/rpc/sw_save_course', { token: session.token, method: 'POST', body: {
+        p_course_id: courseId || null, p_request_id: requestId, p_expected_revision: revision ?? null,
+        p_name: name, p_tees: tees, p_holes: holes, p_swindle_holes: swindleHoles
+      } });
+      if (!saved?.id || !Number.isSafeInteger(saved.revision)) throw new Error('The save response was incomplete. Refresh courses before continuing.');
+      return saved;
     },
     seasonPlan(session, year) {
       return request('/rest/v1/rpc/sw_season_plan', { token: session.token, method: 'POST', body: { p_year: year } });
@@ -79,7 +88,7 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
       if (!Array.isArray(roles) || !roles.some(row => row.role === 'admin')) {
         throw new Error('This preview is for the main admin account. Scorer access will be added later.');
       }
-      const coursesQuery = new URLSearchParams({ select: 'id,name,tees,sw_course_holes(hole_number,par,stroke_index)', order: 'name.asc' });
+      const coursesQuery = new URLSearchParams({ select: 'id,name,tees,course_revision,swindle_holes,sw_course_holes(hole_number,par,stroke_index)', order: 'name.asc' });
       const courses = await request(`/rest/v1/sw_courses?${coursesQuery}`, { token: session.token });
       if (!Array.isArray(courses)) throw new Error('Unexpected course response. Please try again.');
       return courses.map(course => ({ ...course, sw_course_holes: [...(course.sw_course_holes || [])].sort((a,b) => a.hole_number - b.hole_number) }));
