@@ -8,7 +8,7 @@ export default function RoundSetup({api,session,courses}) {
   const [seasons,setSeasons]=useState([]),[seasonId,setSeasonId]=useState('');
   const fixedCourse=courses.find(c=>c.is_swindle_course);
   const courseId=fixedCourse?.id||'';
-  const [date,setDate]=useState(ukToday()),[options,setOptions]=useState(null);
+  const [date,setDate]=useState(ukToday()),[options,setOptions]=useState(null),[chosenFormat,setChosenFormat]=useState('normal');
   const [selected,setSelected]=useState([]),[jokers,setJokers]=useState([]),[confirmed,setConfirmed]=useState(false);
   const [cards,setCards]=useState([]),[opened,setOpened]=useState(null);
   const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState(''),[revision,setRevision]=useState(0);
@@ -27,13 +27,15 @@ export default function RoundSetup({api,session,courses}) {
     if(season)setDate(today<season.start_date?season.start_date:today>season.end_date?season.end_date:today);
   },[seasonId,season?.start_date,season?.end_date]);
   useEffect(()=>{
-    setSelected([]);setJokers([]);setConfirmed(false);setOptions(null);
+    setSelected([]);setJokers([]);setConfirmed(false);setOptions(null);setChosenFormat('normal');
     if(!seasonId||!date)return;
     let active=true;setLoading(true);
     api.loadRoundOptions(session,seasonId,date).then(data=>{if(active){setOptions(data);setLoading(false);}}).catch(e=>{if(active){setError(e.message);setLoading(false);}});
     return()=>{active=false;};
   },[api,session,seasonId,date,revision]);
   const event=options?.events[0],closed=event&&!['scheduled','in_progress'].includes(event.status);
+  const courseFormat=event?.course_format||chosenFormat;
+  const formatLabel=courseFormat==='par3'?'Par 3 · all ten holes par 3':'Normal · usual Bungay pars';
   const mismatch=event&&event.course_id!==courseId;
   const valid=season&&date>=season.start_date&&date<=season.end_date&&date<=today;
   const members=options?.members.filter(m=>m.joined_on<=date)||[];
@@ -43,17 +45,17 @@ export default function RoundSetup({api,session,courses}) {
   async function start(e){
     e.preventDefault();if(action.current||!options||!selected.length||!confirmed)return;
     action.current=true;setSaving(true);setError('');
-    const details={seasonId,courseId,playedOn:date,playerIds:selected,jokerPlayerIds:jokers},fingerprint=JSON.stringify(details);
+    const details={seasonId,courseId,playedOn:date,playerIds:selected,jokerPlayerIds:jokers,courseFormat},fingerprint=JSON.stringify(details);
     if(request.current?.fingerprint!==fingerprint)request.current={fingerprint,id:crypto.randomUUID()};
     try{
       const id=await api.startRound(session,{...details,requestId:request.current.id});
-      setOpened({id,sw_events:{season_id:seasonId,played_on:date,course_name_snapshot:course.name,tees_snapshot:course.tees},sw_entries:selected.map(playerId=>{
+      setOpened({id,sw_events:{season_id:seasonId,played_on:date,course_name_snapshot:course.name+(courseFormat==='par3'?' (Par 3)':''),tees_snapshot:course.tees},sw_entries:selected.map(playerId=>{
         const m=members.find(p=>p.player_id===playerId);return{player_id:playerId,handicap_used:m.current_handicap,joker_declared_at:jokers.includes(playerId)?'declared':null,sw_players:{name:m.sw_players.name}};
       })});
       setSelected([]);setJokers([]);setConfirmed(false);setRevision(n=>n+1);
       try{const saved=await api.loadMyScorecards(session);setCards(saved);const actual=saved.find(c=>c.id===id);if(actual)setOpened(actual);}
       catch{setError('The round was saved, but details could not be refreshed. Use Refresh rounds to reload.');}
-    }catch(e){setError(e.message);}finally{setSaving(false);action.current=false;}
+    }catch(e){setError(e.message);if(e.code==='40001')setRevision(n=>n+1);}finally{setSaving(false);action.current=false;}
   }
   if(opened)return <OnlineScorecard api={api} session={session} cardId={opened.id} onBack={()=>{setOpened(null);setError('');setRevision(n=>n+1);}} />;
   return <div>
@@ -63,6 +65,7 @@ export default function RoundSetup({api,session,courses}) {
       <label htmlFor="round-date" className="mt-4 mb-2 block font-semibold">Round date</label><input id="round-date" type="date" required min={season?.start_date} max={season?(season.end_date<today?season.end_date:today):today} value={date} onChange={e=>{setDate(e.target.value);setError('');}} className={field}/>
       <div className="mt-4 rounded-2xl bg-slate-50 p-4"><p className="font-semibold">Wednesday Swindle course</p><p className="mt-1">{course?`${course.name} · ${course.tees} · 10 holes`:'Bungay Swindle course is not configured.'}</p></div>
       {!course&&<p role="alert" className="mt-2 text-sm text-red-800">Run database/10-fixed-swindle-course.sql to configure the fixed Bungay course.</p>}
+      {event?<div className="mt-4 rounded-2xl bg-emerald-50 p-4"><p className="font-semibold">This week’s format</p><p className="mt-1">{formatLabel}</p><p className="mt-2 text-sm text-slate-600">Set by the first group and used by every group this week. Stroke indexes stay unchanged.</p></div>:<><label htmlFor="round-format" className="mt-4 mb-2 block font-semibold">This week’s course format</label><select id="round-format" disabled={loading||!options} value={chosenFormat} onChange={e=>{setChosenFormat(e.target.value);setConfirmed(false);setError('');}} className={field}><option value="normal">Normal · usual Bungay pars</option><option value="par3">Par 3 · all ten holes par 3</option></select><p className="mt-2 text-sm text-slate-600">The first group sets the format for the whole week. Stroke indexes stay unchanged.</p></>}
       {event&&!mismatch&&<p className="mt-2 text-sm text-slate-600">Joining this week’s event uses the course details saved when its first group started.</p>}
       {mismatch&&<p className="mt-2 text-sm text-red-800">This date has a previous test event on another course. Choose another Test Season date for a Bungay round.</p>}
       {closed&&<p className="mt-3 text-red-800">This event is closed to new groups.</p>}
@@ -73,7 +76,7 @@ export default function RoundSetup({api,session,courses}) {
           {entered(id)?<p className="mt-2 ml-8 text-xs text-slate-500">Already entered in this event</p>:chosen?<label className="mt-3 ml-8 flex items-center gap-2 text-sm"><input type="checkbox" checked={jokers.includes(id)} disabled={used(id)} onChange={e=>{setConfirmed(false);setJokers(ids=>e.target.checked?[...ids,id]:ids.filter(p=>p!==id));}}/>{used(id)?'Season Joker already used':'Play season Joker this round'}</label>:used(id)?<p className="mt-2 ml-8 text-xs text-slate-500">Season Joker already used</p>:null}
         </div>;
       })}</div>}
-      <label className="mt-5 flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm"><input type="checkbox" required checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} className="mt-1"/><span>These players have not started their round. Joker choices are final once I start this round.</span></label>
+      <label className="mt-5 flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm"><input type="checkbox" required checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} className="mt-1"/><span>These players have not started their round. Joker choices are final once I start this round. Course format: {formatLabel}.</span></label>
       <button disabled={saving||loading||!options||!course||!valid||(!event&&swindleHoles(course).length!==10)||mismatch||closed||!selected.length||!confirmed} className="mt-4 w-full rounded-2xl bg-emerald-600 p-4 text-lg font-bold text-white disabled:opacity-50">{saving?'Saving round…':'Start round'}</button>
     </fieldset></form>
     {error&&<p role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-red-800">{error}</p>}

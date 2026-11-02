@@ -36,10 +36,11 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
           if (data?.code === '40001') { const error = new Error(data.message); error.code = '40001'; throw error; }
           if (data?.code === 'P0001' && /(weekly_event|reveal_season)/.test(path)) throw new Error(data.message);
           if (data?.code === '22023') throw new Error(data.message);
-          if (data?.code === 'PGRST202') throw new Error(path.includes('sw_save_course') ? 'Run database/09-course-management.sql in Supabase before saving courses.' : /sw_season_plan|sw_create_season/.test(path) ? 'Run database/08-season-setup.sql in Supabase before setting up a season.' : path.includes('sw_organiser_') ? 'Run database/06-secondary-admin.sql in Supabase before signing in as an organiser.' : (/published|season_board|season_blackout|reveal_season/.test(path)) ? 'Run database/05-published-results.sql in Supabase before viewing season results.' : path.includes('weekly_event') ? 'Run database/04-weekly-results.sql in Supabase before reviewing results.' : path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
+          if (data?.code === 'PGRST202') throw new Error(path.includes('sw_start_swindle_round_format') ? 'Run database/11-par3-swindle.sql in Supabase before starting a round.' : path.includes('sw_save_course') ? 'Run database/09-course-management.sql in Supabase before saving courses.' : /sw_season_plan|sw_create_season/.test(path) ? 'Run database/08-season-setup.sql in Supabase before setting up a season.' : path.includes('sw_organiser_') ? 'Run database/06-secondary-admin.sql in Supabase before signing in as an organiser.' : (/published|season_board|season_blackout|reveal_season/.test(path)) ? 'Run database/05-published-results.sql in Supabase before viewing season results.' : path.includes('weekly_event') ? 'Run database/04-weekly-results.sql in Supabase before reviewing results.' : path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
         }
         if (response.status === 401) throw new Error('Your session has expired. Sign out and sign in again.');
         if (response.status === 403) throw new Error('Access denied. Check the admin role and database permissions.');
+        if (data?.code === '42703' && path.startsWith('/rest/v1/sw_events')) throw new Error('Run database/11-par3-swindle.sql in Supabase before setting up rounds.');
         if (data?.code === '42703' && path.startsWith('/rest/v1/sw_courses')) throw new Error('Run database/10-fixed-swindle-course.sql in Supabase after migration 09 to configure the Bungay Swindle course.');
         if (data?.code === '42703' && path.startsWith('/rest/v1/sw_scorecards')) throw new Error('Run database/03-score-entry.sql in Supabase before entering scores.');
         throw new Error('The database request failed. Check your project settings and try again.');
@@ -125,7 +126,7 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
     },
     async loadRoundOptions(session, seasonId, playedOn) {
       const entriesQuery = new URLSearchParams({ select: 'player_id,event_id,joker_declared_at', season_id: `eq.${seasonId}` });
-      const eventQuery = new URLSearchParams({ select: 'id,course_id,status', season_id: `eq.${seasonId}`, event_type: 'eq.swindle', played_on: `eq.${playedOn}`, status: 'neq.cancelled' });
+      const eventQuery = new URLSearchParams({ select: 'id,course_id,status,course_format', season_id: `eq.${seasonId}`, event_type: 'eq.swindle', played_on: `eq.${playedOn}`, status: 'neq.cancelled' });
       const [members, entries, events] = await Promise.all([
         this.loadSeasonPlayers(session, seasonId, playedOn),
         request(`/rest/v1/sw_entries?${entriesQuery}`, { token: session.token }),
@@ -140,10 +141,10 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
       if (!Array.isArray(cards)) throw new Error('Unable to read saved scorecards.');
       return cards;
     },
-    startRound(session, { requestId, seasonId, courseId, playedOn, playerIds, jokerPlayerIds }) {
-      return request('/rest/v1/rpc/sw_start_swindle_round', { token: session.token, method: 'POST', body: {
+    startRound(session, { requestId, seasonId, courseId, playedOn, playerIds, jokerPlayerIds, courseFormat = 'normal' }) {
+      return request('/rest/v1/rpc/sw_start_swindle_round_format', { token: session.token, method: 'POST', body: {
         p_request_id: requestId, p_season_id: seasonId, p_course_id: courseId,
-        p_played_on: playedOn, p_player_ids: playerIds, p_joker_player_ids: jokerPlayerIds
+        p_played_on: playedOn, p_player_ids: playerIds, p_joker_player_ids: jokerPlayerIds, p_course_format: courseFormat
       } });
     },
     async loadScorecard(session, cardId) {
