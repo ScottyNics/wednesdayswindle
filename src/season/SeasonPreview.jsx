@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createDatabaseApi } from './api';
+import WeeklyResults from './WeeklyResults';
 import RoundSetup from './RoundSetup';
 import PlayerManagement from './PlayerManagement';
 import { projectUrl, publishableKey } from './config';
@@ -96,10 +97,10 @@ export default function SeasonPreview() {
             <>
               <div className="flex items-center justify-between gap-3"><h2 className="text-2xl font-bold">Club admin</h2><button onClick={signOut} className="rounded-xl border border-slate-300 px-3 py-2 font-semibold">Sign out</button></div>
               <p className="mt-3 mb-5 text-sm font-semibold text-emerald-700">Connected to Supabase · Admin access</p>
-              <nav aria-label="Admin sections" className="mb-6 flex gap-2 rounded-2xl bg-slate-100 p-1">
-                {['courses', 'players', 'rounds'].map(value => <button key={value} type="button" aria-pressed={tab===value} onClick={()=>setTab(value)} className={`flex-1 rounded-xl p-3 font-semibold ${tab===value ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600'}`}>{value==='courses' ? 'Courses' : value==='players' ? 'Players' : 'Rounds'}</button>)}
+              <nav aria-label="Admin sections" className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-1">
+                {['courses', 'players', 'rounds', 'results'].map(value => <button key={value} type="button" aria-pressed={tab===value} onClick={()=>setTab(value)} className={`min-w-[80px] flex-1 rounded-xl p-2 text-sm font-semibold ${tab===value ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600'}`}>{value==='courses' ? 'Courses' : value==='players' ? 'Players' : value==='rounds' ? 'Rounds' : 'Results'}</button>)}
               </nav>
-              {tab === 'players' ? <PlayerManagement api={config.api} session={session} /> : tab === 'rounds' ? <RoundSetup api={config.api} session={session} courses={courses} /> : <>
+              {tab === 'players' ? <PlayerManagement api={config.api} session={session} /> : tab === 'results' ? <WeeklyResults api={config.api} session={session} /> : tab === 'rounds' ? <RoundSetup api={config.api} session={session} courses={courses} /> : <>
               {courses.length ? <>
                 <label htmlFor="course-select" className="mb-2 block font-semibold">Course and tees</label>
                 <select id="course-select" value={selectedId} onChange={e=>setSelectedId(e.target.value)} className={inputClass}>

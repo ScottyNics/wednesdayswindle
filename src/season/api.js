@@ -34,8 +34,9 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
         if (path.startsWith('/auth/v1/token')) throw new Error('Unable to sign in. Check your email and password, and that the account is confirmed.');
         if (path.startsWith('/rest/v1/rpc/sw_')) {
           if (data?.code === '40001') { const error = new Error(data.message); error.code = '40001'; throw error; }
+          if (data?.code === 'P0001' && /weekly_event/.test(path)) throw new Error(data.message);
           if (data?.code === '22023') throw new Error(data.message);
-          if (data?.code === 'PGRST202') throw new Error(path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
+          if (data?.code === 'PGRST202') throw new Error(path.includes('weekly_event') ? 'Run database/04-weekly-results.sql in Supabase before reviewing results.' : path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
         }
         if (response.status === 401) throw new Error('Your session has expired. Sign out and sign in again.');
         if (response.status === 403) throw new Error('Access denied. Check the admin role and database permissions.');
@@ -142,6 +143,21 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
     },
     submitScorecard(session, cardId, revision) {
       return request('/rest/v1/rpc/sw_submit_scorecard', { token: session.token, method: 'POST', body: { p_scorecard_id: cardId, p_expected_revision: revision } });
+    },
+    async loadWeeklyEvents(session, seasonId) {
+      const query = new URLSearchParams({ select: 'id,played_on,course_name_snapshot,status', season_id: `eq.${seasonId}`, event_type: 'eq.swindle', status: 'neq.cancelled', order: 'played_on.desc,created_at.desc' });
+      const events = await request(`/rest/v1/sw_events?${query}`, { token: session.token });
+      if (!Array.isArray(events)) throw new Error('Unable to load weekly events.');
+      return events;
+    },
+    reviewWeeklyEvent(session, eventId) {
+      return request('/rest/v1/rpc/sw_review_weekly_event', { token: session.token, method: 'POST', body: { p_event_id: eventId } });
+    },
+    confirmWeeklyEvent(session, eventId, reviewToken, manualWinner = null) {
+      return request('/rest/v1/rpc/sw_confirm_weekly_event', { token: session.token, method: 'POST', body: { p_event_id: eventId, p_review_token: reviewToken, p_manual_winner: manualWinner } });
+    },
+    publishWeeklyEvent(session, eventId) {
+      return request('/rest/v1/rpc/sw_publish_weekly_event', { token: session.token, method: 'POST', body: { p_event_id: eventId } });
     },
     signOut: session => request('/auth/v1/logout?scope=local', { token: session.token, method: 'POST' })
   };
