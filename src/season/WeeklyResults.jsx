@@ -8,7 +8,7 @@ export default function WeeklyResults({api,session}) {
  const [seasons,setSeasons]=useState([]),[seasonId,setSeasonId]=useState(''),[events,setEvents]=useState([]),[eventId,setEventId]=useState('');
  const [review,setReview]=useState(null),[manual,setManual]=useState(''),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[revision,setRevision]=useState(0),[prompt,setPrompt]=useState(null);
  const dialogRef=useRef(null),inFlight=useRef(false);
- useEffect(()=>{let active=true;api.loadPlayerSetup(session).then(({seasons})=>{if(active){setSeasons(seasons);setSeasonId(seasons.find(s=>s.name==='Test Season')?.id||seasons[0]?.id||'');if(!seasons.length)setLoading(false);}}).catch(e=>{if(active){setError(e.message);setLoading(false);}});return()=>{active=false;};},[api,session]);
+ useEffect(()=>{let active=true;api.loadWeeklySeasons(session).then(seasons=>{if(active){setSeasons(seasons);setSeasonId(seasons.find(s=>s.name==='Test Season')?.id||seasons[0]?.id||'');if(!seasons.length)setLoading(false);}}).catch(e=>{if(active){setError(e.message);setLoading(false);}});return()=>{active=false;};},[api,session]);
  useEffect(()=>{
    if(!seasonId)return;let active=true;const previousEvent=eventId;setEventId('');setReview(null);setEvents([]);setLoading(true);setManual('');setError('');setNotice('');
    api.loadWeeklyEvents(session,seasonId).then(data=>{if(active){setEvents(data);setEventId(data.some(ev=>ev.id===previousEvent)?previousEvent:data[0]?.id||'');if(!data.length)setLoading(false);}}).catch(e=>{if(active){setError(e.message);setLoading(false);}});

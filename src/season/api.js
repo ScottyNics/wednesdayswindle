@@ -36,7 +36,7 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
           if (data?.code === '40001') { const error = new Error(data.message); error.code = '40001'; throw error; }
           if (data?.code === 'P0001' && /(weekly_event|reveal_season)/.test(path)) throw new Error(data.message);
           if (data?.code === '22023') throw new Error(data.message);
-          if (data?.code === 'PGRST202') throw new Error((/published|season_board|season_blackout|reveal_season/.test(path)) ? 'Run database/05-published-results.sql in Supabase before viewing season results.' : path.includes('weekly_event') ? 'Run database/04-weekly-results.sql in Supabase before reviewing results.' : path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
+          if (data?.code === 'PGRST202') throw new Error(path.includes('sw_organiser_') ? 'Run database/06-secondary-admin.sql in Supabase before signing in as an organiser.' : (/published|season_board|season_blackout|reveal_season/.test(path)) ? 'Run database/05-published-results.sql in Supabase before viewing season results.' : path.includes('weekly_event') ? 'Run database/04-weekly-results.sql in Supabase before reviewing results.' : path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
         }
         if (response.status === 401) throw new Error('Your session has expired. Sign out and sign in again.');
         if (response.status === 403) throw new Error('Access denied. Check the admin role and database permissions.');
@@ -56,6 +56,16 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
       const data = await request('/auth/v1/token?grant_type=password', { method: 'POST', body: { email: email.trim(), password } });
       if (!data?.access_token || !data?.user?.id || !Number.isFinite(data.expires_in)) throw new Error('The sign-in response was incomplete. Try again.');
       return { token: data.access_token, userId: data.user.id, expiresAt: Date.now() + data.expires_in * 1000 };
+    },
+    async loadOrganiserRole(session) {
+      const role = await request('/rest/v1/rpc/sw_organiser_role', { token: session.token, method: 'POST', body: {} });
+      if (!['admin','secondary_admin'].includes(role)) throw new Error('This account has no organiser access.');
+      return role;
+    },
+    async loadWeeklySeasons(session) {
+      const seasons = await request('/rest/v1/rpc/sw_organiser_seasons', { token: session.token, method: 'POST', body: {} });
+      if (!Array.isArray(seasons)) throw new Error('Unable to load organiser seasons.');
+      return seasons;
     },
     async loadCourses(session) {
       const query = new URLSearchParams({ select: 'role', user_id: `eq.${session.userId}` });
@@ -145,8 +155,7 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
       return request('/rest/v1/rpc/sw_submit_scorecard', { token: session.token, method: 'POST', body: { p_scorecard_id: cardId, p_expected_revision: revision } });
     },
     async loadWeeklyEvents(session, seasonId) {
-      const query = new URLSearchParams({ select: 'id,played_on,course_name_snapshot,status', season_id: `eq.${seasonId}`, event_type: 'eq.swindle', status: 'neq.cancelled', order: 'played_on.desc,created_at.desc' });
-      const events = await request(`/rest/v1/sw_events?${query}`, { token: session.token });
+      const events = await request('/rest/v1/rpc/sw_organiser_events', { token: session.token, method: 'POST', body: { p_season_id: seasonId } });
       if (!Array.isArray(events)) throw new Error('Unable to load weekly events.');
       return events;
     },

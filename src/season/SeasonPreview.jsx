@@ -42,9 +42,11 @@ export default function SeasonPreview() {
     let next;
     try {
       next = await config.api.signIn(email, password);
-      const loaded = await config.api.loadCourses(next);
+      const role = await config.api.loadOrganiserRole(next);
+      const loaded = role === 'admin' ? await config.api.loadCourses(next) : [];
       if (generation.current !== current) return;
-      setSession(next); setCourses(loaded);
+      setSession({ ...next, role }); setCourses(loaded);
+      setTab(role === 'admin' ? 'courses' : 'results');
       setSelectedId(loaded.find(c => c.name === 'Bungay')?.id || loaded[0]?.id || '');
     } catch (e) {
       if (next) await config.api.signOut(next).catch(() => {});
@@ -74,6 +76,8 @@ export default function SeasonPreview() {
     });
   }
 
+  const isMainAdmin = session?.role === 'admin';
+  const allowedTabs = isMainAdmin ? ['courses', 'players', 'rounds', 'results', 'season'] : ['results', 'season'];
   const course = courses.find(c => c.id === selectedId);
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 to-emerald-950 px-4 py-8 text-white">
@@ -96,16 +100,16 @@ export default function SeasonPreview() {
               <label htmlFor="admin-password" className="mt-4 mb-2 block font-semibold">Password</label>
               <input id="admin-password" type="password" autoComplete="current-password" required value={password} disabled={busy} onChange={e=>setPassword(e.target.value)} className={inputClass} />
               <button disabled={busy} className={`${buttonClass} mt-6`}>{busy ? 'Connecting…' : 'Sign in'}</button>
-              <p className="mt-4 text-sm text-slate-500">For this first preview, refreshing the page signs you out.</p>
+              <p className="mt-4 text-sm text-slate-500">Refreshing the page signs you out.</p>
             </form>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-3"><h2 className="text-2xl font-bold">Club admin</h2><button onClick={signOut} className="rounded-xl border border-slate-300 px-3 py-2 font-semibold">Sign out</button></div>
-              <p className="mt-3 mb-5 text-sm font-semibold text-emerald-700">Connected to Supabase · Admin access</p>
+              <div className="flex items-center justify-between gap-3"><h2 className="text-2xl font-bold">{isMainAdmin ? 'Club admin' : 'Weekly organiser'}</h2><button onClick={signOut} className="rounded-xl border border-slate-300 px-3 py-2 font-semibold">Sign out</button></div>
+              <p className="mt-3 mb-5 text-sm font-semibold text-emerald-700">Connected to Supabase · {isMainAdmin ? 'Main admin access' : 'Secondary admin access'}</p>
               <nav aria-label="Admin sections" className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-1">
-                {['courses', 'players', 'rounds', 'results', 'season'].map(value => <button key={value} type="button" aria-pressed={tab===value} onClick={()=>setTab(value)} className={`min-w-[80px] flex-1 rounded-xl p-2 text-sm font-semibold ${tab===value ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600'}`}>{value==='courses' ? 'Courses' : value==='players' ? 'Players' : value==='rounds' ? 'Rounds' : value==='results' ? 'Results' : 'Season'}</button>)}
+                {allowedTabs.map(value => <button key={value} type="button" aria-pressed={tab===value} onClick={()=>setTab(value)} className={`min-w-[80px] flex-1 rounded-xl p-2 text-sm font-semibold ${tab===value ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600'}`}>{value==='courses' ? 'Courses' : value==='players' ? 'Players' : value==='rounds' ? 'Rounds' : value==='results' ? 'Results' : 'Season'}</button>)}
               </nav>
-              {tab === 'players' ? <PlayerManagement api={config.api} session={session} /> : tab === 'season' ? <PublishedResults api={config.api} session={session} /> : tab === 'results' ? <WeeklyResults api={config.api} session={session} /> : tab === 'rounds' ? <RoundSetup api={config.api} session={session} courses={courses} /> : <>
+              {!allowedTabs.includes(tab) ? <p>Select an available section.</p> : tab === 'players' ? <PlayerManagement api={config.api} session={session} /> : tab === 'season' ? <PublishedResults api={config.api} session={session} /> : tab === 'results' ? <WeeklyResults api={config.api} session={session} /> : tab === 'rounds' ? <RoundSetup api={config.api} session={session} courses={courses} /> : <>
               {courses.length ? <>
                 <label htmlFor="course-select" className="mb-2 block font-semibold">Course and tees</label>
                 <select id="course-select" value={selectedId} onChange={e=>setSelectedId(e.target.value)} className={inputClass}>
@@ -123,7 +127,7 @@ export default function SeasonPreview() {
           )}
           {error && <p role="alert" className="mt-5 rounded-2xl bg-red-50 p-4 text-red-800">{error}</p>}
         </section>
-        <p className="mt-6 text-center text-sm text-slate-300">Manage your courses, season players and round setup.</p>
+        <p className="mt-6 text-center text-sm text-slate-300">Scores, weekly results and your season so far.</p>
         <a className="mt-5 block text-center font-semibold underline underline-offset-4" href="?scorecard=1">Open the existing scorecard</a>
       </div>
     </main>
