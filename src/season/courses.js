@@ -16,5 +16,5 @@ export function validateCourse(draft) {
   if (new Set(holes.map(h=>h.stroke_index)).size !== holes.length) throw new Error('Each hole must have a different stroke index. Keep the original course indexes for a shorter layout.');
   const layout = draft.swindle_holes;
   if (!Array.isArray(layout) || ![0,10].includes(layout.length) || new Set(layout).size !== layout.length || layout.some(n=>!Number.isInteger(n)||n<1||n>holes.length)) throw new Error('Select exactly ten different holes for Swindle, or clear the Swindle layout.');
-  return {name,tees,holes,swindleHoles:[...layout]};
+  return {name,tees,holes,swindleHoles:[...layout].sort((a,b)=>a-b)};
 }
