@@ -34,9 +34,9 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
         if (path.startsWith('/auth/v1/token')) throw new Error('Unable to sign in. Check your email and password, and that the account is confirmed.');
         if (path.startsWith('/rest/v1/rpc/sw_')) {
           if (data?.code === '40001') { const error = new Error(data.message); error.code = '40001'; throw error; }
-          if (data?.code === 'P0001' && /weekly_event/.test(path)) throw new Error(data.message);
+          if (data?.code === 'P0001' && /(weekly_event|reveal_season)/.test(path)) throw new Error(data.message);
           if (data?.code === '22023') throw new Error(data.message);
-          if (data?.code === 'PGRST202') throw new Error(path.includes('weekly_event') ? 'Run database/04-weekly-results.sql in Supabase before reviewing results.' : path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
+          if (data?.code === 'PGRST202') throw new Error((/published|season_board|season_blackout|reveal_season/.test(path)) ? 'Run database/05-published-results.sql in Supabase before viewing season results.' : path.includes('weekly_event') ? 'Run database/04-weekly-results.sql in Supabase before reviewing results.' : path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
         }
         if (response.status === 401) throw new Error('Your session has expired. Sign out and sign in again.');
         if (response.status === 403) throw new Error('Access denied. Check the admin role and database permissions.');
@@ -158,6 +158,24 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
     },
     publishWeeklyEvent(session, eventId) {
       return request('/rest/v1/rpc/sw_publish_weekly_event', { token: session.token, method: 'POST', body: { p_event_id: eventId } });
+    },
+    publishedSeasons() {
+      return request('/rest/v1/rpc/sw_published_seasons', { method: 'POST', body: {} });
+    },
+    publishedWeeks(seasonId) {
+      return request('/rest/v1/rpc/sw_published_weeks', { method: 'POST', body: { p_season_id: seasonId } });
+    },
+    publishedWeek(eventId) {
+      return request('/rest/v1/rpc/sw_published_week', { method: 'POST', body: { p_event_id: eventId } });
+    },
+    seasonBoard(seasonId, session = null) {
+      return request('/rest/v1/rpc/sw_season_board', { token: session?.token, method: 'POST', body: { p_season_id: seasonId } });
+    },
+    setSeasonBlackout(session, seasonId, hiddenFrom) {
+      return request('/rest/v1/rpc/sw_set_season_blackout', { token: session.token, method: 'POST', body: { p_season_id: seasonId, p_hidden_from: hiddenFrom || null } });
+    },
+    revealSeason(session, seasonId) {
+      return request('/rest/v1/rpc/sw_reveal_season', { token: session.token, method: 'POST', body: { p_season_id: seasonId } });
     },
     signOut: session => request('/auth/v1/logout?scope=local', { token: session.token, method: 'POST' })
   };
