@@ -40,7 +40,7 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
         }
         if (response.status === 401) throw new Error('Your session has expired. Sign out and sign in again.');
         if (response.status === 403) throw new Error('Access denied. Check the admin role and database permissions.');
-        if (data?.code === '42703' && path.startsWith('/rest/v1/sw_courses')) throw new Error('Run database/09-course-management.sql in Supabase before managing courses.');
+        if (data?.code === '42703' && path.startsWith('/rest/v1/sw_courses')) throw new Error('Run database/10-fixed-swindle-course.sql in Supabase after migration 09 to configure the Bungay Swindle course.');
         if (data?.code === '42703' && path.startsWith('/rest/v1/sw_scorecards')) throw new Error('Run database/03-score-entry.sql in Supabase before entering scores.');
         throw new Error('The database request failed. Check your project settings and try again.');
       }
@@ -88,7 +88,7 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
       if (!Array.isArray(roles) || !roles.some(row => row.role === 'admin')) {
         throw new Error('This preview is for the main admin account. Scorer access will be added later.');
       }
-      const coursesQuery = new URLSearchParams({ select: 'id,name,tees,course_revision,swindle_holes,sw_course_holes(hole_number,par,stroke_index)', order: 'name.asc' });
+      const coursesQuery = new URLSearchParams({ select: 'id,name,tees,course_revision,swindle_holes,is_swindle_course,sw_course_holes(hole_number,par,stroke_index)', order: 'name.asc' });
       const courses = await request(`/rest/v1/sw_courses?${coursesQuery}`, { token: session.token });
       if (!Array.isArray(courses)) throw new Error('Unexpected course response. Please try again.');
       return courses.map(course => ({ ...course, sw_course_holes: [...(course.sw_course_holes || [])].sort((a,b) => a.hole_number - b.hole_number) }));

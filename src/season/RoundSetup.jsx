@@ -6,7 +6,8 @@ const field='w-full rounded-2xl border border-slate-300 bg-white p-3 text-base t
 const handicap=value=>value<0?`+${Math.abs(value)}`:value;
 export default function RoundSetup({api,session,courses}) {
   const [seasons,setSeasons]=useState([]),[seasonId,setSeasonId]=useState('');
-  const [courseId,setCourseId]=useState(courses.find(c=>c.name==='Bungay')?.id||courses[0]?.id||'');
+  const fixedCourse=courses.find(c=>c.is_swindle_course);
+  const courseId=fixedCourse?.id||'';
   const [date,setDate]=useState(ukToday()),[options,setOptions]=useState(null);
   const [selected,setSelected]=useState([]),[jokers,setJokers]=useState([]),[confirmed,setConfirmed]=useState(false);
   const [cards,setCards]=useState([]),[opened,setOpened]=useState(null);
@@ -60,11 +61,10 @@ export default function RoundSetup({api,session,courses}) {
     <form onSubmit={start}><fieldset disabled={saving}><legend className="sr-only">Round setup</legend>
       <label htmlFor="round-season" className="mb-2 block font-semibold">Season</label><select id="round-season" required value={seasonId} onChange={e=>{setSeasonId(e.target.value);setError('');}} className={field}><option value="">Select season</option>{seasons.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
       <label htmlFor="round-date" className="mt-4 mb-2 block font-semibold">Round date</label><input id="round-date" type="date" required min={season?.start_date} max={season?(season.end_date<today?season.end_date:today):today} value={date} onChange={e=>{setDate(e.target.value);setError('');}} className={field}/>
-      <label htmlFor="round-course" className="mt-4 mb-2 block font-semibold">Course and tees</label><select id="round-course" required value={courseId} onChange={e=>{setCourseId(e.target.value);setConfirmed(false);setError('');}} className={field}><option value="">Select course</option>{courses.map(c=><option key={c.id} value={c.id}>{c.name} · {c.tees}</option>)}</select>
-      {course&&swindleHoles(course).length!==10&&!event&&<p className="mt-2 text-sm text-red-800">Save a ten-hole Swindle layout for these tees in Courses first.</p>}
-      {course&&swindleHoles(course).length===10&&!event&&<p className="mt-2 text-sm text-slate-600">Swindle route: {swindleHoles(course).map(h=>h.hole_number).join(' → ')}</p>}
+      <div className="mt-4 rounded-2xl bg-slate-50 p-4"><p className="font-semibold">Wednesday Swindle course</p><p className="mt-1">{course?`${course.name} · ${course.tees} · 10 holes`:'Bungay Swindle course is not configured.'}</p></div>
+      {!course&&<p role="alert" className="mt-2 text-sm text-red-800">Run database/10-fixed-swindle-course.sql to configure the fixed Bungay course.</p>}
       {event&&!mismatch&&<p className="mt-2 text-sm text-slate-600">Joining this week’s event uses the course details saved when its first group started.</p>}
-      {mismatch&&<p className="mt-2 text-sm text-red-800">This date already has an event on another course. Choose that course to join it.</p>}
+      {mismatch&&<p className="mt-2 text-sm text-red-800">This date has a previous test event on another course. Choose another Test Season date for a Bungay round.</p>}
       {closed&&<p className="mt-3 text-red-800">This event is closed to new groups.</p>}
       <h4 className="mt-6 mb-2 font-bold">Players · {selected.length}/4</h4><p className="mb-3 text-xs text-slate-500">Handicaps apply to the chosen date. Used Jokers cannot be selected.</p>
       {loading?<p role="status">Loading players…</p>:!members.length?<p className="rounded-2xl bg-slate-100 p-4">No players registered on this date. Add them in the Players tab first.</p>:<div className="divide-y divide-slate-200 rounded-2xl border border-slate-200 px-3">{members.map(m=>{
@@ -74,7 +74,7 @@ export default function RoundSetup({api,session,courses}) {
         </div>;
       })}</div>}
       <label className="mt-5 flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-sm"><input type="checkbox" required checked={confirmed} onChange={e=>setConfirmed(e.target.checked)} className="mt-1"/><span>These players have not started their round. Joker choices are final once I start this round.</span></label>
-      <button disabled={saving||loading||!options||!valid||(!event&&swindleHoles(course).length!==10)||mismatch||closed||!selected.length||!confirmed} className="mt-4 w-full rounded-2xl bg-emerald-600 p-4 text-lg font-bold text-white disabled:opacity-50">{saving?'Saving round…':'Start round'}</button>
+      <button disabled={saving||loading||!options||!course||!valid||(!event&&swindleHoles(course).length!==10)||mismatch||closed||!selected.length||!confirmed} className="mt-4 w-full rounded-2xl bg-emerald-600 p-4 text-lg font-bold text-white disabled:opacity-50">{saving?'Saving round…':'Start round'}</button>
     </fieldset></form>
     {error&&<p role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-red-800">{error}</p>}
     <button disabled={saving} onClick={()=>{setError('');setRevision(n=>n+1);}} className="mt-4 w-full rounded-2xl border border-slate-300 p-3 font-semibold disabled:opacity-50">Refresh rounds</button>
