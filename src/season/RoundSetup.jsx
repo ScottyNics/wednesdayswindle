@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import OnlineScorecard from './OnlineScorecard';
 import { ukToday } from './players';
 const field='w-full rounded-2xl border border-slate-300 bg-white p-3 text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600';
 const handicap=value=>value<0?`+${Math.abs(value)}`:value;
@@ -52,14 +53,7 @@ export default function RoundSetup({api,session,courses}) {
       catch{setError('The round was saved, but details could not be refreshed. Use Refresh rounds to reload.');}
     }catch(e){setError(e.message);}finally{setSaving(false);action.current=false;}
   }
-  if(opened)return <div>
-    <h3 className="text-xl font-bold">Round saved</h3><p className="mt-3 font-semibold text-emerald-700">Your group is registered.</p>
-    <p className="mt-3">{opened.sw_events?.course_name_snapshot} · {opened.sw_events?.tees_snapshot}</p><p className="mt-1 text-slate-600">{opened.sw_events?.played_on}</p>
-    <ul className="mt-5 divide-y divide-slate-200">{opened.sw_entries?.map(e=><li key={e.player_id} className="flex justify-between gap-3 py-3"><span>{e.sw_players?.name||'Player'}</span><span className="text-right font-semibold">HCP {handicap(e.handicap_used)}{e.joker_declared_at&&<span className="ml-2 text-purple-700">Joker</span>}</span></li>)}</ul>
-    <p className="mt-5 rounded-2xl bg-slate-100 p-4 text-sm text-slate-600">This update saves round setup and Joker declarations. Hole-by-hole score entry will be connected in the next update.</p>
-    {error&&<p role="alert" className="mt-4 text-red-800">{error}</p>}
-    <button onClick={()=>{setOpened(null);setError('');setRevision(n=>n+1);}} className="mt-5 w-full rounded-2xl bg-emerald-600 p-4 font-bold text-white">Back to rounds</button>
-  </div>;
+  if(opened)return <OnlineScorecard api={api} session={session} cardId={opened.id} onBack={()=>{setOpened(null);setError('');setRevision(n=>n+1);}} />;
   return <div>
     <h3 className="text-xl font-bold">Wednesday Swindle round</h3><p className="mt-2 mb-5 text-sm text-slate-600">Choose your group and declare any Jokers before starting. Groups on the same date join the same weekly event.</p>
     <form onSubmit={start}><fieldset disabled={saving}><legend className="sr-only">Round setup</legend>

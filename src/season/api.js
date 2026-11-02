@@ -33,11 +33,13 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
       if (!response.ok) {
         if (path.startsWith('/auth/v1/token')) throw new Error('Unable to sign in. Check your email and password, and that the account is confirmed.');
         if (path.startsWith('/rest/v1/rpc/sw_')) {
+          if (data?.code === '40001') { const error = new Error(data.message); error.code = '40001'; throw error; }
           if (data?.code === '22023') throw new Error(data.message);
-          if (data?.code === 'PGRST202') throw new Error(path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
+          if (data?.code === 'PGRST202') throw new Error(path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
         }
         if (response.status === 401) throw new Error('Your session has expired. Sign out and sign in again.');
         if (response.status === 403) throw new Error('Access denied. Check the admin role and database permissions.');
+        if (data?.code === '42703' && path.startsWith('/rest/v1/sw_scorecards')) throw new Error('Run database/03-score-entry.sql in Supabase before entering scores.');
         throw new Error('The database request failed. Check your project settings and try again.');
       }
       return data;
@@ -117,6 +119,29 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
         p_request_id: requestId, p_season_id: seasonId, p_course_id: courseId,
         p_played_on: playedOn, p_player_ids: playerIds, p_joker_player_ids: jokerPlayerIds
       } });
+    },
+    async loadScorecard(session, cardId) {
+      const query = new URLSearchParams({ select: 'id,event_id,scorer_user_id,status,score_revision,sw_events(played_on,course_name_snapshot,tees_snapshot,status),sw_entries(id,player_id,handicap_used,joker_declared_at,sw_players(name))', id: `eq.${cardId}`, scorer_user_id: `eq.${session.userId}` });
+      const cards = await request(`/rest/v1/sw_scorecards?${query}`, { token: session.token });
+      if (!Array.isArray(cards) || cards.length !== 1) throw new Error('This scorecard is unavailable for your account.');
+      const card = cards[0];
+      if (!Number.isSafeInteger(card.score_revision)) throw new Error('Run database/03-score-entry.sql in Supabase before entering scores.');
+      const entries = [...(card.sw_entries || [])].sort((a,b) => (a.sw_players?.name || '').localeCompare(b.sw_players?.name || '') || a.id.localeCompare(b.id));
+      if (!entries.length || entries.length > 4 || !card.sw_events) throw new Error('The scorecard setup is incomplete.');
+      const holesQuery = new URLSearchParams({ select: 'position,course_hole_number,par,stroke_index', event_id: `eq.${card.event_id}`, order: 'position.asc' });
+      const scoresQuery = new URLSearchParams({ select: 'entry_id,hole_position,gross_score,no_score', event_id: `eq.${card.event_id}`, entry_id: `in.(${entries.map(e=>e.id).join(',')})` });
+      const [holes, scores] = await Promise.all([
+        request(`/rest/v1/sw_event_holes?${holesQuery}`, { token: session.token }),
+        request(`/rest/v1/sw_hole_scores?${scoresQuery}`, { token: session.token })
+      ]);
+      if (!Array.isArray(holes) || !holes.length || !Array.isArray(scores)) throw new Error('Unable to load this scorecard.');
+      return { card, entries, holes, scores };
+    },
+    saveHole(session, cardId, position, scores, revision) {
+      return request('/rest/v1/rpc/sw_save_scorecard_hole', { token: session.token, method: 'POST', body: { p_scorecard_id: cardId, p_hole_position: position, p_scores: scores, p_expected_revision: revision } });
+    },
+    submitScorecard(session, cardId, revision) {
+      return request('/rest/v1/rpc/sw_submit_scorecard', { token: session.token, method: 'POST', body: { p_scorecard_id: cardId, p_expected_revision: revision } });
     },
     signOut: session => request('/auth/v1/logout?scope=local', { token: session.token, method: 'POST' })
   };
