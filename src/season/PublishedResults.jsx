@@ -12,7 +12,7 @@ export default function PublishedResults({api,session=null}) {
    return()=>{active=false;};
  },[api]);
  // Refresh also re-checks visibility at the UK blackout boundary.
- useEffect(()=>{if(session)return;const id=setInterval(()=>setRevision(n=>n+1),60000);return()=>clearInterval(id);},[session]);
+ useEffect(()=>{if(session?.role==='admin'||session?.role==='secondary_admin')return;const id=setInterval(()=>setRevision(n=>n+1),60000);return()=>clearInterval(id);},[session]);
  useEffect(()=>{
    if(!seasonId)return;let active=true;setBoard(null);setLoading(true);setError('');
    api.seasonBoard(seasonId,session).then(data=>{if(active){setBoard(data);setHiddenFrom(data.leaderboard_hidden_from||'');}}).catch(e=>{if(active)setError(e.message);}).finally(()=>{if(active)setLoading(false);});

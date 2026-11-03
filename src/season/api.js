@@ -36,10 +36,10 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
           if (data?.code === '40001') { const error = new Error(data.message); error.code = '40001'; throw error; }
           if (data?.code === 'P0001' && /(weekly_event|reveal_season)/.test(path)) throw new Error(data.message);
           if (data?.code === '22023') throw new Error(data.message);
-          if (data?.code === 'PGRST202') throw new Error(path.includes('sw_start_swindle_round_format') ? 'Run database/11-par3-swindle.sql in Supabase before starting a round.' : path.includes('sw_save_course') ? 'Run database/09-course-management.sql in Supabase before saving courses.' : /sw_season_plan|sw_create_season/.test(path) ? 'Run database/08-season-setup.sql in Supabase before setting up a season.' : path.includes('sw_organiser_') ? 'Run database/06-secondary-admin.sql in Supabase before signing in as an organiser.' : (/published|season_board|season_blackout|reveal_season/.test(path)) ? 'Run database/05-published-results.sql in Supabase before viewing season results.' : path.includes('weekly_event') ? 'Run database/04-weekly-results.sql in Supabase before reviewing results.' : path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
+          if (data?.code === 'PGRST202') throw new Error(/sw_portal_role|sw_scorer_|sw_start_scorer_group|sw_open_week/.test(path) ? 'Run database/12-scorer-access.sql in Supabase before using scorer access.' : path.includes('sw_start_swindle_round_format') ? 'Run database/11-par3-swindle.sql in Supabase before starting a round.' : path.includes('sw_save_course') ? 'Run database/09-course-management.sql in Supabase before saving courses.' : /sw_season_plan|sw_create_season/.test(path) ? 'Run database/08-season-setup.sql in Supabase before setting up a season.' : path.includes('sw_organiser_') ? 'Run database/06-secondary-admin.sql in Supabase before signing in as an organiser.' : (/published|season_board|season_blackout|reveal_season/.test(path)) ? 'Run database/05-published-results.sql in Supabase before viewing season results.' : path.includes('weekly_event') ? 'Run database/04-weekly-results.sql in Supabase before reviewing results.' : path.includes('scorecard') ? 'Run database/03-score-entry.sql in Supabase before entering scores.' : path.includes('start_swindle') ? 'Run database/02-round-setup.sql in Supabase before starting a round.' : 'Run database/01-player-management.sql in Supabase before adding players.');
         }
         if (response.status === 401) throw new Error('Your session has expired. Sign out and sign in again.');
-        if (response.status === 403) throw new Error('Access denied. Check the admin role and database permissions.');
+        if (response.status === 403) throw new Error('Access denied. Check the account role and database permissions.');
         if (data?.code === '42703' && path.startsWith('/rest/v1/sw_events')) throw new Error('Run database/11-par3-swindle.sql in Supabase before setting up rounds.');
         if (data?.code === '42703' && path.startsWith('/rest/v1/sw_courses')) throw new Error('Run database/10-fixed-swindle-course.sql in Supabase after migration 09 to configure the Bungay Swindle course.');
         if (data?.code === '42703' && path.startsWith('/rest/v1/sw_scorecards')) throw new Error('Run database/03-score-entry.sql in Supabase before entering scores.');
@@ -73,6 +73,30 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
     createSeason(session, year, name) {
       return request('/rest/v1/rpc/sw_create_season', { token: session.token, method: 'POST', body: { p_year: year, p_name: name } });
     },
+    async loadPortalRole(session) {
+      const role = await request('/rest/v1/rpc/sw_portal_role', { token: session.token, method: 'POST', body: {} });
+      if (!['admin','secondary_admin','scorer'].includes(role)) throw new Error('This account has not been approved for app access.');
+      return role;
+    },
+    openWeek(session, {seasonId, playedOn, courseFormat}) {
+      return request('/rest/v1/rpc/sw_open_week', { token: session.token, method: 'POST', body: { p_season_id: seasonId, p_played_on: playedOn, p_course_format: courseFormat } });
+    },
+    async scorerWeeks(session) {
+      const data = await request('/rest/v1/rpc/sw_scorer_weeks', { token: session.token, method: 'POST', body: {} });
+      if (!Array.isArray(data)) throw new Error('Unable to load open weeks. Refresh and try again.');
+      return data;
+    },
+    async scorerOptions(session, eventId) {
+      const data = await request('/rest/v1/rpc/sw_scorer_options', { token: session.token, method: 'POST', body: { p_event_id: eventId } });
+      if (!data?.event || !Array.isArray(data.members)) throw new Error('Unable to load this week. Refresh and try again.');
+      return data;
+    },
+    startScorerGroup(session, {eventId, requestId, playerIds, jokerPlayerIds}) {
+      return request('/rest/v1/rpc/sw_start_scorer_group', { token: session.token, method: 'POST', body: { p_event_id: eventId, p_request_id: requestId, p_player_ids: playerIds, p_joker_player_ids: jokerPlayerIds } });
+    },
+    addScorerPlayer(session, eventId, name, handicap) {
+      return request('/rest/v1/rpc/sw_scorer_add_player', { token: session.token, method: 'POST', body: { p_event_id: eventId, p_name: name.trim(), p_handicap: parseHandicap(handicap) } });
+    },
     async loadOrganiserRole(session) {
       const role = await request('/rest/v1/rpc/sw_organiser_role', { token: session.token, method: 'POST', body: {} });
       if (!['admin','secondary_admin'].includes(role)) throw new Error('This account has no organiser access.');
@@ -87,7 +111,7 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
       const query = new URLSearchParams({ select: 'role', user_id: `eq.${session.userId}` });
       const roles = await request(`/rest/v1/sw_user_roles?${query}`, { token: session.token });
       if (!Array.isArray(roles) || !roles.some(row => row.role === 'admin')) {
-        throw new Error('This preview is for the main admin account. Scorer access will be added later.');
+        throw new Error('Only the main admin can manage courses.');
       }
       const coursesQuery = new URLSearchParams({ select: 'id,name,tees,course_revision,swindle_holes,is_swindle_course,sw_course_holes(hole_number,par,stroke_index)', order: 'name.asc' });
       const courses = await request(`/rest/v1/sw_courses?${coursesQuery}`, { token: session.token });
@@ -136,6 +160,11 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
       return { members, entries, events };
     },
     async loadMyScorecards(session) {
+      if (['scorer','secondary_admin'].includes(session.role)) {
+        const cards = await request('/rest/v1/rpc/sw_scorer_cards', { token: session.token, method: 'POST', body: {} });
+        if (!Array.isArray(cards)) throw new Error('Unable to read saved scorecards.');
+        return cards;
+      }
       const query = new URLSearchParams({ select: 'id,status,started_at,sw_events(id,season_id,played_on,course_name_snapshot,tees_snapshot),sw_entries(player_id,handicap_used,joker_declared_at,sw_players(name))', scorer_user_id: `eq.${session.userId}`, order: 'started_at.desc', limit: '50' });
       const cards = await request(`/rest/v1/sw_scorecards?${query}`, { token: session.token });
       if (!Array.isArray(cards)) throw new Error('Unable to read saved scorecards.');
@@ -148,6 +177,11 @@ export function createDatabaseApi(projectUrl, publicKey, fetcher = fetch) {
       } });
     },
     async loadScorecard(session, cardId) {
+      if (['scorer','secondary_admin'].includes(session.role)) {
+        const data = await request('/rest/v1/rpc/sw_scorer_card', { token: session.token, method: 'POST', body: { p_scorecard_id: cardId } });
+        if (!data?.card || !Number.isSafeInteger(data.card.score_revision) || !Array.isArray(data.entries) || !Array.isArray(data.holes) || !Array.isArray(data.scores)) throw new Error('Unable to load this scorecard.');
+        return data;
+      }
       const query = new URLSearchParams({ select: 'id,event_id,scorer_user_id,status,score_revision,sw_events(played_on,course_name_snapshot,tees_snapshot,status),sw_entries(id,player_id,handicap_used,joker_declared_at,sw_players(name))', id: `eq.${cardId}`, scorer_user_id: `eq.${session.userId}` });
       const cards = await request(`/rest/v1/sw_scorecards?${query}`, { token: session.token });
       if (!Array.isArray(cards) || cards.length !== 1) throw new Error('This scorecard is unavailable for your account.');

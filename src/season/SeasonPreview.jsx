@@ -6,6 +6,8 @@ import RoundSetup from './RoundSetup';
 import PlayerManagement from './PlayerManagement';
 import SeasonSetup from './SeasonSetup';
 import CourseManagement from './CourseManagement';
+import ScorerRounds from './ScorerRounds';
+import WeekSetup from './WeekSetup';
 import { projectUrl, publishableKey } from './config';
 
 const inputClass = 'w-full rounded-2xl border border-slate-300 bg-white p-4 text-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600';
@@ -43,11 +45,11 @@ export default function SeasonPreview() {
     let next;
     try {
       next = await config.api.signIn(email, password);
-      const role = await config.api.loadOrganiserRole(next);
+      const role = await config.api.loadPortalRole(next);
       const loaded = role === 'admin' ? await config.api.loadCourses(next) : [];
       if (generation.current !== current) return;
       setSession({ ...next, role }); setCourses(loaded);
-      setTab(role === 'admin' ? 'courses' : 'results');
+      setTab(role === 'admin' ? 'courses' : role === 'scorer' ? 'rounds' : 'results');
     } catch (e) {
       if (next) await config.api.signOut(next).catch(() => {});
       if (generation.current === current) setError(e.message);
@@ -71,7 +73,7 @@ export default function SeasonPreview() {
   }
 
   const isMainAdmin = session?.role === 'admin';
-  const allowedTabs = isMainAdmin ? ['courses', 'players', 'rounds', 'results', 'season', 'setup'] : ['results', 'season'];
+  const allowedTabs = isMainAdmin ? ['courses', 'players', 'weeks', 'rounds', 'results', 'season', 'setup'] : session?.role === 'secondary_admin' ? ['weeks', 'rounds', 'results', 'season'] : ['rounds', 'season'];
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 to-emerald-950 px-4 py-8 text-white">
       <div className="mx-auto max-w-lg">
@@ -82,12 +84,12 @@ export default function SeasonPreview() {
           {config.error ? (
             <><h2 className="text-2xl font-bold">Connect your database</h2><p className="mt-4" role="status">{config.error}</p><p className="mt-3 text-sm text-slate-600">Add the project URL and public publishable key to this development deployment, then rebuild.</p></>
           ) : publicView ? (
-            <><PublishedResults api={config.api} /><a href="?" className="mt-6 block text-center font-semibold text-emerald-800 underline">Admin sign in</a></>
+            <><PublishedResults api={config.api} /><a href="?" className="mt-6 block text-center font-semibold text-emerald-800 underline">Sign in to record a round</a></>
           ) : !session ? (
             <form onSubmit={signIn}>
               <a href="?view=results" className="mb-6 block rounded-2xl bg-emerald-50 p-4 text-center font-bold text-emerald-800">View published results and season standings</a>
-              <h2 className="text-2xl font-bold">Admin sign in</h2>
-              <p className="mt-2 mb-5 text-slate-600">Use the app account you created in Supabase.</p>
+              <h2 className="text-2xl font-bold">Swindle sign in</h2>
+              <p className="mt-2 mb-5 text-slate-600">Use your approved scorer or organiser account.</p>
               <label htmlFor="admin-email" className="mb-2 block font-semibold">Email</label>
               <input id="admin-email" type="email" autoComplete="username" required value={email} disabled={busy} onChange={e=>setEmail(e.target.value)} className={inputClass} />
               <label htmlFor="admin-password" className="mt-4 mb-2 block font-semibold">Password</label>
@@ -97,12 +99,12 @@ export default function SeasonPreview() {
             </form>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-3"><h2 className="text-2xl font-bold">{isMainAdmin ? 'Club admin' : 'Weekly organiser'}</h2><button onClick={signOut} className="rounded-xl border border-slate-300 px-3 py-2 font-semibold">Sign out</button></div>
-              <p className="mt-3 mb-5 text-sm font-semibold text-emerald-700">Connected to Supabase · {isMainAdmin ? 'Main admin access' : 'Secondary admin access'}</p>
-              <nav aria-label="Admin sections" className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-1">
-                {allowedTabs.map(value => <button key={value} type="button" aria-pressed={tab===value} onClick={()=>setTab(value)} className={`min-w-[80px] flex-1 rounded-xl p-2 text-sm font-semibold ${tab===value ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600'}`}>{value==='courses' ? 'Courses' : value==='players' ? 'Players' : value==='rounds' ? 'Rounds' : value==='results' ? 'Results' : value==='setup' ? 'Setup' : 'Season'}</button>)}
+              <div className="flex items-center justify-between gap-3"><h2 className="text-2xl font-bold">{isMainAdmin ? 'Club admin' : session.role === 'scorer' ? 'Group scorer' : 'Weekly organiser'}</h2><button onClick={signOut} className="rounded-xl border border-slate-300 px-3 py-2 font-semibold">Sign out</button></div>
+              <p className="mt-3 mb-5 text-sm font-semibold text-emerald-700">Connected to Supabase · {isMainAdmin ? 'Main admin access' : session.role === 'scorer' ? 'Scorer access' : 'Secondary admin access'}</p>
+              <nav aria-label="App sections" className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-1">
+                {allowedTabs.map(value => <button key={value} type="button" aria-pressed={tab===value} onClick={()=>setTab(value)} className={`min-w-[80px] flex-1 rounded-xl p-2 text-sm font-semibold ${tab===value ? 'bg-white text-emerald-800 shadow-sm' : 'text-slate-600'}`}>{value==='weeks' ? 'Open week' : value==='courses' ? 'Courses' : value==='players' ? 'Players' : value==='rounds' ? 'Rounds' : value==='results' ? 'Results' : value==='setup' ? 'Setup' : 'Season'}</button>)}
               </nav>
-              {!allowedTabs.includes(tab) ? <p>Select an available section.</p> : tab === 'setup' ? <SeasonSetup api={config.api} session={session} /> : tab === 'players' ? <PlayerManagement api={config.api} session={session} /> : tab === 'season' ? <PublishedResults api={config.api} session={session} /> : tab === 'results' ? <WeeklyResults api={config.api} session={session} /> : tab === 'rounds' ? <RoundSetup api={config.api} session={session} courses={courses} /> : <CourseManagement api={config.api} session={session} courses={courses} onChanged={refreshCourses} />}
+              {!allowedTabs.includes(tab) ? <p>Select an available section.</p> : tab === 'weeks' ? <WeekSetup api={config.api} session={session} /> : tab === 'setup' ? <SeasonSetup api={config.api} session={session} /> : tab === 'players' ? <PlayerManagement api={config.api} session={session} /> : tab === 'season' ? <PublishedResults api={config.api} session={session} /> : tab === 'results' ? <WeeklyResults api={config.api} session={session} /> : tab === 'rounds' ? (isMainAdmin ? <RoundSetup api={config.api} session={session} courses={courses} /> : <ScorerRounds api={config.api} session={session} />) : <CourseManagement api={config.api} session={session} courses={courses} onChanged={refreshCourses} />}
             </>
           )}
           {error && <p role="alert" className="mt-5 rounded-2xl bg-red-50 p-4 text-red-800">{error}</p>}
